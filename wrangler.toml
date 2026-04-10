@@ -1,0 +1,11 @@
+name = "featherd2d"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "featherd2d_db"
+database_id = "454dd797-6886-4892-b212-750a36860915"
+
+[assets]
+directory = "./"
