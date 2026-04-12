@@ -256,7 +256,7 @@
     let CURRENT_USER = null;
     let ACTIVE_POLYGONS = new Set();
     let polygons = [];
-        const STATUS_COLORS = {
+    const STATUS_COLORS = {
       "prospect": "#facc15",
       "knocked": "#a855f7",
       "not interested": "#06b7d6",
@@ -402,13 +402,6 @@
           return match ? match[1] : null;
         }
 
-        const STATUS_COLORS = {
-          "prospect": "#facc15",
-          "knocked": "#a855f7",
-          "not interested": "#06b7d6",
-          "follow up": "#0419ba",
-          "sold": "#08a112"
-        };
 
         // 🔥 create markers
         properties.forEach(row => {
