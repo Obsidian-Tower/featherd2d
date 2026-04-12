@@ -97,26 +97,46 @@ export default {
 // 🔥 HANDLERS
 // ================================
 async function handleGetPropertyDispositions(request, env) {
+  console.log("🚀 ENTER handleGetPropertyDispositions");
+
   try {
     const body = await request.json();
+    console.log("📦 Raw body:", body);
+
     const property_ids = body.property_ids;
+    console.log("📊 property_ids:", property_ids);
 
-    // ✅ allow empty input
-    if (!Array.isArray(property_ids) || property_ids.length === 0) {
+    if (!Array.isArray(property_ids)) {
+      console.log("❌ property_ids is not an array");
+      return json({ error: "property_ids must be array" }, 400);
+    }
+
+    if (property_ids.length === 0) {
+      console.log("⚠️ property_ids is empty → returning []");
       return json([]);
     }
 
-    // ✅ clean IDs
-    const normalizedIds = property_ids
-      .map(id => Number(id))
-      .filter(id => Number.isFinite(id));
+    // 🔥 normalize
+    const normalizedIds = property_ids.map(id => {
+      const num = Number(id);
+      console.log("🔍 Converting ID:", id, "→", num);
+      return num;
+    });
 
-    // ✅ if nothing valid → return empty (NO ERROR)
-    if (normalizedIds.length === 0) {
+    console.log("🧪 normalizedIds BEFORE filter:", normalizedIds);
+
+    const filteredIds = normalizedIds.filter(id => Number.isFinite(id));
+
+    console.log("🧪 filteredIds AFTER filter:", filteredIds);
+
+    if (filteredIds.length === 0) {
+      console.log("⚠️ No valid IDs after filtering → returning []");
       return json([]);
     }
 
-    const placeholders = normalizedIds.map(() => "?").join(",");
+    // 🔥 placeholders
+    const placeholders = filteredIds.map(() => "?").join(",");
+    console.log("🧱 placeholders:", placeholders);
 
     const query = `
       SELECT pdh.*
@@ -130,16 +150,34 @@ async function handleGetPropertyDispositions(request, env) {
       ON pdh.id = latest.max_id
     `;
 
-    const rows = await env.DB
-      .prepare(query)
-      .bind(...normalizedIds)
-      .all();
+    console.log("🧾 SQL QUERY:", query);
+    console.log("📌 Bind values:", filteredIds);
 
-    // ✅ empty table → returns []
-    return json(rows.results || []);
+    let rows;
+
+    try {
+      rows = await env.DB
+        .prepare(query)
+        .bind(...filteredIds)
+        .all();
+
+      console.log("✅ Query executed successfully");
+    } catch (dbErr) {
+      console.error("💥 DB QUERY FAILED:", dbErr);
+      return json({ error: "DB query failed", details: dbErr.message }, 500);
+    }
+
+    console.log("📬 Raw DB response:", rows);
+
+    const results = rows?.results || [];
+
+    console.log("📦 Final results:", results);
+    console.log("📊 Result count:", results.length);
+
+    return json(results);
 
   } catch (err) {
-    console.error("❌ get-property-dispositions error:", err);
+    console.error("💥 FULL HANDLER ERROR:", err);
     return json({ error: err.message }, 500);
   }
 }
