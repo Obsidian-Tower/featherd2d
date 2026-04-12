@@ -131,6 +131,101 @@
       opacity: 0.7;
       font-size: 13px;
     }
+        .notes-container {
+      display: flex;
+      flex-direction: column;
+      height: 110px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .notes-thread {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #f9fafb;
+    }
+
+    .note-row {
+      display: flex;
+      justify-content: flex-start;
+      width: 100%;
+    }
+
+    .note-bubble {
+      max-width: 70%;
+      padding: 6px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .note-left {
+      justify-content: flex-start;
+    }
+
+    .note-left .note-bubble {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .note-meta {
+      font-size: 10px;
+      opacity: 0.6;
+      color: #374151;
+    }
+
+    .notes-input {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      gap: 6px;
+      background: #ffffff;
+    }
+
+    .notes-input input {
+      flex: 1;
+      min-width: 0;
+      padding: 6px;
+      border: none;
+      outline: none;
+      font-size: 12px;
+      background: #ffffff;
+      color: #111827;
+    }
+
+    .notes-input button {
+      padding: 6px 10px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+    }
+
+    .gm-ui-hover-effect {
+      display: none !important;
+    }
+
+    .gm-style .gm-style-iw-c {
+      padding: 0 !important;
+      border-radius: 8px !important;
+    }
+
+    .gm-style .gm-style-iw-d {
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+    }
+
+    .gm-style .gm-style-iw {
+      padding: 0 !important;
+    }
   </style>
 </head>
 <body>
@@ -161,12 +256,51 @@
     let CURRENT_USER = null;
     let ACTIVE_POLYGONS = new Set();
     let polygons = [];
-
+        const STATUS_COLORS = {
+      "prospect": "#facc15",
+      "knocked": "#a855f7",
+      "not interested": "#06b7d6",
+      "follow up": "#0419ba",
+      "sold": "#08a112",
+      "installed": "#07ed0f",
+      "vacant": "#fc7447"
+    };
     function getUserFromURL() {
       const params = new URLSearchParams(window.location.search);
       return params.get("user");
     }
 
+    function renderNote(notesThread, note) {
+      const isMe = note.user === CURRENT_USER;
+
+      const row = document.createElement("div");
+      row.className = "note-row note-left";
+
+      const bubbleWrap = document.createElement("div");
+
+      const meta = document.createElement("div");
+      meta.className = "note-meta";
+      meta.textContent = `${note.user} - ${new Date(note.created_at).toLocaleTimeString()}`;
+      bubbleWrap.appendChild(meta);
+
+      const bubble = document.createElement("div");
+      bubble.className = "note-bubble";
+
+      if (isMe) {
+        bubble.style.background = "#2563eb";
+        bubble.style.color = "white";
+      } else {
+        bubble.style.background = "#e5e7eb";
+        bubble.style.color = "#111827";
+      }
+
+      bubble.textContent = note.note;
+
+      bubbleWrap.appendChild(bubble);
+      row.appendChild(bubbleWrap);
+      notesThread.appendChild(row);
+    }
+    
     function getRandomColor() {
       const colors = ["#ef4444", "#22c55e", "#3b82f6", "#f59e0b", "#a855f7", "#14b8a6"];
       return colors[Math.floor(Math.random() * colors.length)];
@@ -281,8 +415,8 @@
           if (typeof row.lat !== "number" || typeof row.lng !== "number") return;
 
           const status = statusMap[row.property_id];
-
-          const fillColor = status ? STATUS_COLORS[status] : "#ffffff";
+          row.current_status = status || "prospect";
+          const fillColor = STATUS_COLORS[row.current_status] || "#ffffff";
           const textColor = status ? "#ffffff" : "#000000";
 
           const addressNumber = getAddressNumber(row.PHY_ADDR1);
@@ -312,34 +446,190 @@
             })
           });
 
-          marker.addListener("click", () => {
+                    marker.addListener("click", () => {
             if (activeInfoWindow) activeInfoWindow.close();
 
             const container = document.createElement("div");
-            container.style.padding = "6px";
+            container.style.padding = "5px";
+            container.style.margin = "0";
             container.style.fontSize = "13px";
 
-            // 🔥 ADDRESS
-            const address = document.createElement("div");
-            address.textContent = row.PHY_ADDR1 || "No Address";
-            address.style.fontWeight = "600";
+            // =========================
+            // NOTES / CHAT MODULE
+            // =========================
+            const notesContainer = document.createElement("div");
+            notesContainer.className = "notes-container";
 
-            const city = document.createElement("div");
-            city.textContent = row.PHY_CITY || "";
+            const notesThread = document.createElement("div");
+            notesThread.className = "notes-thread";
 
-            container.appendChild(address);
-            container.appendChild(city);
+            (async () => {
+              try {
+                const res = await fetch("https://featherd2d.coryzuber.workers.dev/get-notes", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify({
+                    property_ids: [row.property_id]
+                  })
+                });
 
-            // 🔥 STATUS BUTTONS (FROM LARGE FILE)
-            const STATUS_COLORS = {
-              "prospect": "#facc15",
-              "knocked": "#a855f7",
-              "not interested": "#06b7d6",
-              "follow up": "#0419ba",
-              "sold": "#08a112",
-              "vacant": "#fc7447"
+                const notes = await res.json();
+                if (!Array.isArray(notes)) return;
+
+                notes.forEach(note => renderNote(notesThread, note));
+                notesThread.scrollTop = notesThread.scrollHeight;
+              } catch (err) {
+                console.error("Failed to load notes:", err);
+              }
+            })();
+
+            const inputRow = document.createElement("div");
+            inputRow.className = "notes-input";
+
+            const focusTrap = document.createElement("div");
+            focusTrap.setAttribute("tabindex", "0");
+            focusTrap.style.position = "absolute";
+            focusTrap.style.opacity = "0";
+            focusTrap.style.height = "0";
+            focusTrap.style.width = "0";
+            focusTrap.style.pointerEvents = "none";
+
+            const input = document.createElement("input");
+            input.placeholder = "Add note...";
+
+            const sendBtn = document.createElement("button");
+            sendBtn.textContent = "Send";
+
+            sendBtn.onclick = async () => {
+              const text = input.value.trim();
+              if (!text) return;
+
+              input.disabled = true;
+              sendBtn.disabled = true;
+              sendBtn.textContent = "Sending...";
+
+              try {
+                const res = await fetch("https://featherd2d.coryzuber.workers.dev/add-note", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    property_id: row.property_id,
+                    user: CURRENT_USER,
+                    note: text
+                  })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data?.note) {
+                  renderNote(notesThread, data.note);
+                  input.value = "";
+                  notesThread.scrollTop = notesThread.scrollHeight;
+                } else {
+                  console.error("Add note failed:", data);
+                }
+              } catch (err) {
+                console.error("Add note error:", err);
+              } finally {
+                input.disabled = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = "Send";
+              }
             };
 
+            inputRow.appendChild(focusTrap);
+            inputRow.appendChild(input);
+            inputRow.appendChild(sendBtn);
+
+            notesContainer.appendChild(notesThread);
+            notesContainer.appendChild(inputRow);
+            container.appendChild(notesContainer);
+
+            // =========================
+            // ADDRESS BUTTON WITH COPY
+            // =========================
+            const addressRow = document.createElement("div");
+            addressRow.style.marginBottom = "4px";
+
+            const addressBtn = document.createElement("button");
+            addressBtn.style.display = "flex";
+            addressBtn.style.alignItems = "center";
+            addressBtn.style.justifyContent = "space-between";
+            addressBtn.style.width = "100%";
+            addressBtn.style.background = "#f3f4f6";
+            addressBtn.style.border = "1px solid #374151";
+            addressBtn.style.borderRadius = "6px";
+            addressBtn.style.padding = "6px 8px";
+            addressBtn.style.cursor = "pointer";
+            addressBtn.style.color = "#111";
+            addressBtn.style.fontSize = "14px";
+
+            const addressText = document.createElement("span");
+            addressText.textContent = row.PHY_ADDR1 || "No Address";
+            addressText.style.textAlign = "left";
+            addressText.style.flex = "1";
+
+            const copyIcon = document.createElement("div");
+            copyIcon.style.width = "16px";
+            copyIcon.style.height = "16px";
+            copyIcon.style.position = "relative";
+            copyIcon.style.marginLeft = "8px";
+
+            copyIcon.innerHTML = `
+              <div style="
+                position:absolute;
+                width:12px;
+                height:12px;
+                border:1px solid #374151;
+                top:2px;
+                left:2px;
+                background:white;
+              "></div>
+              <div style="
+                position:absolute;
+                width:12px;
+                height:12px;
+                border:1px solid #374151;
+                top:0;
+                left:0;
+                background:white;
+              "></div>
+            `;
+
+            addressBtn.onclick = async () => {
+              try {
+                await navigator.clipboard.writeText(row.PHY_ADDR1 || "");
+                addressBtn.style.background = "#d1fae5";
+                setTimeout(() => {
+                  addressBtn.style.background = "#f3f4f6";
+                }, 600);
+              } catch (err) {
+                console.error("Copy failed:", err);
+              }
+            };
+
+            addressBtn.appendChild(addressText);
+            addressBtn.appendChild(copyIcon);
+            addressRow.appendChild(addressBtn);
+            container.appendChild(addressRow);
+
+            // =========================
+            // CITY + OWNER
+            // =========================
+            const cityDiv = document.createElement("div");
+            cityDiv.textContent = row.PHY_CITY || "";
+            container.appendChild(cityDiv);
+
+            const ownerDiv = document.createElement("div");
+            ownerDiv.style.marginTop = "6px";
+            ownerDiv.textContent = `Owner: ${row.owner || row.OWN_NAME || "Unknown"}`;
+            container.appendChild(ownerDiv);
+
+            // =========================
+            // STATUS BUTTONS
+            // =========================
             const btnWrap = document.createElement("div");
             btnWrap.style.display = "flex";
             btnWrap.style.flexWrap = "wrap";
@@ -358,12 +648,13 @@
               btn.style.color = "white";
               btn.style.background = STATUS_COLORS[status];
 
-              // 🔥 highlight current status
               if (row.current_status === status) {
                 btn.style.outline = "2px solid white";
               }
 
               btn.onclick = async () => {
+                if (row.current_status === status) return;
+
                 try {
                   const res = await fetch("https://featherd2d.coryzuber.workers.dev/update-property-disposition", {
                     method: "POST",
@@ -380,23 +671,19 @@
                   const data = await res.json();
 
                   if (!res.ok || !data.success) {
-                    console.error("❌ Backend rejected update:", data);
+                    console.error("Backend rejected update:", data);
                     return;
                   }
-
-                  // 🔥 THIS IS THE ONLY THING YOU SHOULD DO
-                  const fillColor = STATUS_COLORS[status];
 
                   marker.setIcon({
                     path: google.maps.SymbolPath.CIRCLE,
                     scale: 15,
-                    fillColor,
+                    fillColor: STATUS_COLORS[status],
                     fillOpacity: 1,
                     strokeWeight: 1,
                     strokeColor: "#000"
                   });
 
-                  // update label color
                   if (marker.getLabel()) {
                     marker.setLabel({
                       ...marker.getLabel(),
@@ -404,21 +691,34 @@
                     });
                   }
 
-                  // update local state
                   row.current_status = status;
 
-                  // update button UI
                   btnWrap.querySelectorAll("button").forEach(b => b.style.outline = "none");
                   btn.style.outline = "2px solid white";
-
                 } catch (err) {
-                  console.error("❌ Network error:", err);
+                  console.error("Network error:", err);
                 }
               };
+
               btnWrap.appendChild(btn);
             });
 
             container.appendChild(btnWrap);
+
+            // =========================
+            // META BLOCK
+            // =========================
+            const meta = document.createElement("div");
+            meta.style.marginTop = "10px";
+            meta.style.fontSize = "12px";
+            meta.style.opacity = "0.85";
+
+            meta.innerHTML = `
+              <div><b>Property ID:</b> ${row.property_id}</div>
+              <div><b>Status:</b> ${row.current_status || "prospect"}</div>
+            `;
+
+            container.appendChild(meta);
 
             activeInfoWindow = new google.maps.InfoWindow({
               content: container
@@ -426,7 +726,6 @@
 
             activeInfoWindow.open(map, marker);
           });
-          
           propertyMarkers.push(marker);
         });
 
