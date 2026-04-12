@@ -22,7 +22,7 @@ export default {
       return serveStatic("polygons.html", env);
     }
 
-    if (request.method === "POST" && url.pathname === "/get-property-dispositions") {
+    if (request.method === "POST" && url.pathname === "c") {
       return handleGetPropertyDispositions(request, env);
     }
 
