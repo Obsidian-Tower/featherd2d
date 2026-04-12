@@ -157,7 +157,7 @@
     let map;
     let userMarker = null;
     let userAccuracyCircle = null;
-
+    let activeInfoWindow = null;
     let CURRENT_USER = null;
     let ACTIVE_POLYGONS = new Set();
     let polygons = [];
@@ -312,6 +312,39 @@
             })
           });
 
+          marker.addListener("click", () => {
+            // 🔥 close previous popup
+            if (activeInfoWindow) {
+              activeInfoWindow.close();
+            }
+
+            const container = document.createElement("div");
+            container.style.padding = "6px";
+            container.style.fontSize = "13px";
+
+            const address = document.createElement("div");
+            address.textContent = row.PHY_ADDR1 || "No Address";
+            address.style.fontWeight = "600";
+
+            const city = document.createElement("div");
+            city.textContent = row.PHY_CITY || "";
+
+            const parcel = document.createElement("div");
+            parcel.textContent = `Parcel: ${row.PARCEL_ID || "N/A"}`;
+            parcel.style.marginTop = "6px";
+            parcel.style.fontSize = "11px";
+            parcel.style.opacity = "0.7";
+
+            container.appendChild(address);
+            container.appendChild(city);
+            container.appendChild(parcel);
+
+            activeInfoWindow = new google.maps.InfoWindow({
+              content: container
+            });
+
+            activeInfoWindow.open(map, marker);
+          });
           propertyMarkers.push(marker);
         });
 
@@ -321,7 +354,7 @@
         console.error("❌ refreshPropertiesForActivePolygons error:", err);
       }
     }
-    
+
     function addLayerUI(polyObj) {
       const list = document.getElementById("layerList");
 
@@ -567,6 +600,13 @@
           { featureType: "poi", stylers: [{ visibility: "off" }] },
           { featureType: "transit", stylers: [{ visibility: "off" }] }
         ]
+      });
+
+      map.addListener("click", () => {
+        if (activeInfoWindow) {
+          activeInfoWindow.close();
+          activeInfoWindow = null;
+        }
       });
 
       const toggle = document.getElementById("uiToggle");
