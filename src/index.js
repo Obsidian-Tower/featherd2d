@@ -22,6 +22,10 @@ export default {
       return serveStatic("polygons.html", env);
     }
 
+    if (request.method === "POST" && url.pathname === "/get-property-dispositions") {
+      return handleGetPropertyDispositions(request, env);
+    }
+
     if (request.method === "POST" && url.pathname === "/get-properties-for-active-polygons") {
       return handleGetPropertiesForActivePolygons(request, env);
     }
@@ -92,6 +96,44 @@ export default {
 // ================================
 // 🔥 HANDLERS
 // ================================
+async function handleGetPropertyDispositions(request, env) {
+  try {
+    const body = await request.json();
+    const property_ids = body.property_ids;
+
+    if (!property_ids || !property_ids.length) {
+      return json({ error: "No property_ids provided" }, 400);
+    }
+
+    // 🔥 dynamic (?, ?, ?, ...)
+    const placeholders = property_ids.map(() => "?").join(",");
+
+    const query = `
+      SELECT pdh.*
+      FROM property_disposition_history pdh
+      INNER JOIN (
+        SELECT property_id, MAX(id) AS max_id
+        FROM property_disposition_history
+        WHERE property_id IN (${placeholders})
+        GROUP BY property_id
+      ) latest
+      ON pdh.id = latest.max_id
+    `;
+
+    const normalizedIds = property_ids.map(id => Number(id));
+
+    const rows = await env.DB
+      .prepare(query)
+      .bind(...normalizedIds)
+      .all();
+
+    return json(rows.results || []);
+
+  } catch (err) {
+    console.error("get-property-dispositions error:", err);
+    return json({ error: err.message }, 500);
+  }
+}
 
 async function handleGetPropertiesForActivePolygons(request, env) {
   try {

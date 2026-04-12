@@ -221,57 +221,107 @@
 
     async function refreshPropertiesForActivePolygons() {
       try {
-        // 1. Clear existing property pins
+        // 🔥 clear existing markers
         propertyMarkers.forEach(marker => marker.setMap(null));
         propertyMarkers = [];
 
-        // 2. Ask backend for all properties inside all active polygons for this user
+        // 🔥 get properties inside active polygons
         const res = await fetch("https://featherd2d.coryzuber.workers.dev/get-properties-for-active-polygons", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            user: CURRENT_USER
-          })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user: CURRENT_USER })
         });
 
         const data = await res.json();
 
         if (!res.ok) {
-          console.error("❌ Failed to refresh properties:", data);
+          console.error("❌ Failed to fetch properties:", data);
           return;
         }
 
         const properties = Array.isArray(data.properties) ? data.properties : [];
 
-        // 3. Draw fresh pins
+        if (!properties.length) return;
+
+        // 🔥 fetch disposition history (latest per property)
+        const propertyIds = properties.map(p => p.property_id);
+
+        const statusRes = await fetch("https://featherd2d.coryzuber.workers.dev/get-property-dispositions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ property_ids: propertyIds })
+        });
+
+        const statuses = await statusRes.json();
+
+        const statusMap = {};
+        if (Array.isArray(statuses)) {
+          statuses.forEach(s => {
+            statusMap[s.property_id] = s.disposition;
+          });
+        }
+
+        // 🔥 helper (copied from large file logic)
+        function getAddressNumber(address) {
+          if (!address) return null;
+          const match = address.trim().match(/^(\d+)/);
+          return match ? match[1] : null;
+        }
+
+        const STATUS_COLORS = {
+          "prospect": "#facc15",
+          "knocked": "#a855f7",
+          "not interested": "#06b7d6",
+          "follow up": "#0419ba",
+          "sold": "#08a112"
+        };
+
+        // 🔥 create markers
         properties.forEach(row => {
           if (typeof row.lat !== "number" || typeof row.lng !== "number") return;
+
+          const status = statusMap[row.property_id];
+
+          const fillColor = status ? STATUS_COLORS[status] : "#ffffff";
+          const textColor = status ? "#ffffff" : "#000000";
+
+          const addressNumber = getAddressNumber(row.PHY_ADDR1);
 
           const marker = new google.maps.Marker({
             position: { lat: row.lat, lng: row.lng },
             map,
-            title: row.PHY_ADDR1 || row.PARCEL_ID || `Property ${row.property_id}`,
+
+            // 🔥 EXACT styling from large file
             icon: {
               path: google.maps.SymbolPath.CIRCLE,
-              scale: 6,
-              fillColor: "#22c55e",
+              scale: 15,
+              fillColor: fillColor,
               fillOpacity: 1,
-              strokeColor: "#000",
-              strokeWeight: 1
-            }
+              strokeWeight: 1,
+              strokeColor: "#000"
+            },
+
+            // 🔥 address number label
+            ...(addressNumber && {
+              label: {
+                text: addressNumber,
+                color: textColor,
+                fontSize: "12px",
+                fontWeight: "600"
+              }
+            })
           });
 
           propertyMarkers.push(marker);
         });
 
-        console.log(`✅ Rendered ${propertyMarkers.length} property markers`);
+        console.log(`✅ Rendered ${propertyMarkers.length} markers`);
+
       } catch (err) {
         console.error("❌ refreshPropertiesForActivePolygons error:", err);
       }
     }
-
+    
     function addLayerUI(polyObj) {
       const list = document.getElementById("layerList");
 
@@ -310,7 +360,7 @@
         await updateActivePolygons();
         await refreshPropertiesForActivePolygons();
       });
-      
+
       item.appendChild(checkbox);
       item.appendChild(colorBox);
       item.appendChild(label);
