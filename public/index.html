@@ -23,6 +23,12 @@
     let map;
     let userMarker = null;
     let userAccuracyCircle = null;
+    let CURRENT_USER = null;
+
+    function getUserFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("user");
+    }
 
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
@@ -36,32 +42,12 @@
         ]
       });
 
-      getUserLocation();
-      map.addListener("click", () => {
-        if (activeInfoWindow) {
-          activeInfoWindow.close();
-          activeInfoWindow = null;
-        }
-      });
       const urlUser = getUserFromURL();
 
       if (urlUser) {
         CURRENT_USER = urlUser;
         console.log("👤 User from URL:", CURRENT_USER);
-
-        // 🔥 STEP 1: load ALL polygons first
-        fetchAllPolygons().then(() => {
-
-          // 🔥 STEP 2: then load active state
-          fetchActivePolygons().then(() => {
-
-            // 🔥 STEP 3: apply active state to UI
-            applyActiveStateToUI();
-
-          });
-
-        });
-
+        getUserLocation();
       } else {
         showUserSelectionModal();
       }
@@ -100,7 +86,6 @@
 
       users.forEach(user => {
         const btn = document.createElement("button");
-
         btn.textContent = user;
         btn.style.display = "block";
         btn.style.width = "100%";
@@ -115,8 +100,6 @@
         btn.onclick = () => {
           const url = new URL(window.location.href);
           url.searchParams.set("user", user);
-
-          // 🔥 redirect to same page with user param
           window.location.href = url.toString();
         };
 
@@ -126,7 +109,6 @@
       overlay.appendChild(box);
       document.body.appendChild(overlay);
     }
-
 
     function getUserLocation() {
       if (!navigator.geolocation) {
@@ -139,14 +121,13 @@
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           const accuracy = position.coords.accuracy;
-
           const userLatLng = { lat, lng };
 
           if (!userMarker) {
             userMarker = new google.maps.Marker({
               position: userLatLng,
               map: map,
-              title: "You are here",
+              title: `${CURRENT_USER || "User"} is here`,
               icon: {
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 6,
@@ -186,7 +167,6 @@
       );
     }
   </script>
-
   <script async
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBGFCA70J_CRFo-FxwoSpN3ZjpMicNeVfM&callback=initMap">
   </script>
