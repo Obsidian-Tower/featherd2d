@@ -1021,20 +1021,22 @@
       map = new google.maps.Map(document.getElementById("map"), {
         center: { lat: 29.187, lng: -82.140 },
         zoom: 16,
-        gestureHandling: "greedy",
         mapTypeId: "hybrid",
+
+        // 🔥 THIS ENABLES VECTOR MAP
+        mapId: "d31238cbcfbf2e0f5cb7fe95",
+
+        gestureHandling: "greedy",
         tilt: 0,
-        heading: 0,
         rotateControl: true,
-        streetViewControl: false,
-        fullscreenControl: false,
         isFractionalZoomEnabled: true,
+
         styles: [
           { featureType: "poi", stylers: [{ visibility: "off" }] },
           { featureType: "transit", stylers: [{ visibility: "off" }] }
         ]
       });
-      
+
       const forceTopDown = () => {
         if (map.getTilt && map.getTilt() !== 0) {
           map.setTilt(0);
