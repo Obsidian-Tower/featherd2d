@@ -313,15 +313,13 @@
           });
 
           marker.addListener("click", () => {
-            // 🔥 close previous popup
-            if (activeInfoWindow) {
-              activeInfoWindow.close();
-            }
+            if (activeInfoWindow) activeInfoWindow.close();
 
             const container = document.createElement("div");
             container.style.padding = "6px";
             container.style.fontSize = "13px";
 
+            // 🔥 ADDRESS
             const address = document.createElement("div");
             address.textContent = row.PHY_ADDR1 || "No Address";
             address.style.fontWeight = "600";
@@ -329,15 +327,91 @@
             const city = document.createElement("div");
             city.textContent = row.PHY_CITY || "";
 
-            const parcel = document.createElement("div");
-            parcel.textContent = `Parcel: ${row.PARCEL_ID || "N/A"}`;
-            parcel.style.marginTop = "6px";
-            parcel.style.fontSize = "11px";
-            parcel.style.opacity = "0.7";
-
             container.appendChild(address);
             container.appendChild(city);
-            container.appendChild(parcel);
+
+            // 🔥 STATUS BUTTONS (FROM LARGE FILE)
+            const STATUS_COLORS = {
+              "prospect": "#facc15",
+              "knocked": "#a855f7",
+              "not interested": "#06b7d6",
+              "follow up": "#0419ba",
+              "sold": "#08a112",
+              "vacant": "#fc7447"
+            };
+
+            const btnWrap = document.createElement("div");
+            btnWrap.style.display = "flex";
+            btnWrap.style.flexWrap = "wrap";
+            btnWrap.style.gap = "6px";
+            btnWrap.style.marginTop = "8px";
+
+            Object.keys(STATUS_COLORS).forEach(status => {
+              const btn = document.createElement("button");
+
+              btn.textContent = status;
+              btn.style.padding = "6px 8px";
+              btn.style.border = "none";
+              btn.style.borderRadius = "6px";
+              btn.style.cursor = "pointer";
+              btn.style.fontSize = "13px";
+              btn.style.color = "white";
+              btn.style.background = STATUS_COLORS[status];
+
+              // 🔥 highlight current status
+              if (row.current_status === status) {
+                btn.style.outline = "2px solid white";
+              }
+
+              btn.onclick = async () => {
+                try {
+                  // 🔥 SEND TO BACKEND (NEW TABLE)
+                  await fetch("https://featherd2d.coryzuber.workers.dev/update-property-disposition", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      property_id: row.property_id,
+                      user: CURRENT_USER,
+                      disposition: status
+                    })
+                  });
+
+                  // 🔥 instant UI update (no reload needed)
+                  const fillColor = STATUS_COLORS[status];
+
+                  marker.setIcon({
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 15,
+                    fillColor,
+                    fillOpacity: 1,
+                    strokeWeight: 1,
+                    strokeColor: "#000"
+                  });
+
+                  // 🔥 update label color
+                  if (marker.getLabel()) {
+                    marker.setLabel({
+                      ...marker.getLabel(),
+                      color: "#ffffff"
+                    });
+                  }
+
+                  // 🔥 update button highlight
+                  btnWrap.querySelectorAll("button").forEach(b => b.style.outline = "none");
+                  btn.style.outline = "2px solid white";
+
+                  // 🔥 update local state
+                  row.current_status = status;
+
+                } catch (err) {
+                  console.error("❌ Failed to update disposition:", err);
+                }
+              };
+
+              btnWrap.appendChild(btn);
+            });
+
+            container.appendChild(btnWrap);
 
             activeInfoWindow = new google.maps.InfoWindow({
               content: container
@@ -345,6 +419,7 @@
 
             activeInfoWindow.open(map, marker);
           });
+          
           propertyMarkers.push(marker);
         });
 
