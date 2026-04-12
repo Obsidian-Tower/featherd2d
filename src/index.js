@@ -22,6 +22,10 @@ export default {
       return serveStatic("polygons.html", env);
     }
 
+    if (request.method === "POST" && url.pathname === "/get-properties-for-active-polygons") {
+      return handleGetPropertiesForActivePolygons(request, env);
+    }
+
     if (request.method === "POST" && url.pathname === "/update-area") {
       return handleUpdateArea(request, env);
     }
@@ -88,6 +92,169 @@ export default {
 // ================================
 // 🔥 HANDLERS
 // ================================
+
+async function handleGetPropertiesForActivePolygons(request, env) {
+  try {
+    const body = await request.json();
+    const { user } = body;
+
+    if (!user) {
+      return json({ error: "Missing user" }, 400);
+    }
+
+    // 1. Load active polygon ids for this user
+    const activeRow = await env.DB.prepare(`
+      SELECT active_polygons
+      FROM user_active_polygons
+      WHERE user = ?
+      LIMIT 1
+    `)
+      .bind(user)
+      .first();
+
+    if (!activeRow) {
+      return json({ properties: [] });
+    }
+
+    let activePolygonIds = [];
+    try {
+      activePolygonIds = JSON.parse(activeRow.active_polygons || "[]");
+    } catch (err) {
+      console.error("Failed to parse active polygon JSON:", err);
+      return json({ properties: [] });
+    }
+
+    if (!Array.isArray(activePolygonIds) || activePolygonIds.length === 0) {
+      return json({ properties: [] });
+    }
+
+    // 2. Load polygon rows
+    const placeholders = activePolygonIds.map(() => "?").join(",");
+
+    const polygonRows = await env.DB.prepare(`
+      SELECT id, name, coords
+      FROM polygons
+      WHERE id IN (${placeholders})
+    `)
+      .bind(...activePolygonIds)
+      .all();
+
+    const polygons = (polygonRows.results || [])
+      .map(row => {
+        try {
+          return {
+            id: row.id,
+            name: row.name,
+            coords: JSON.parse(row.coords)
+          };
+        } catch (err) {
+          console.error("Bad polygon coords for polygon", row.id, err);
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .filter(p => Array.isArray(p.coords) && p.coords.length >= 3);
+
+    if (!polygons.length) {
+      return json({ properties: [] });
+    }
+
+    // 3. Query candidate properties by bbox, then point-in-polygon filter
+    const deduped = new Map();
+
+    for (const polygon of polygons) {
+      const { minLat, maxLat, minLng, maxLng } = getBoundingBox(polygon.coords);
+
+      const propertyRows = await env.DB.prepare(`
+        SELECT
+          property_id,
+          OWN_NAME,
+          lat,
+          lng,
+          PHY_ADDR1,
+          PHY_ADDR2,
+          PHY_CITY,
+          PHY_ZIPCD,
+          ALT_KEY,
+          PARCEL_ID,
+          data_from,
+          created_at,
+          updated_at
+        FROM properties
+        WHERE lat BETWEEN ? AND ?
+          AND lng BETWEEN ? AND ?
+      `)
+        .bind(minLat, maxLat, minLng, maxLng)
+        .all();
+
+      const candidates = propertyRows.results || [];
+
+      for (const property of candidates) {
+        if (property.lat == null || property.lng == null) continue;
+
+        const inside = pointInPolygon(
+          [Number(property.lat), Number(property.lng)],
+          polygon.coords
+        );
+
+        if (!inside) continue;
+
+        const dedupeKey = property.property_id ?? property.PARCEL_ID ?? `${property.lat},${property.lng}`;
+        if (!deduped.has(dedupeKey)) {
+          deduped.set(dedupeKey, property);
+        }
+      }
+    }
+
+    return json({
+      properties: Array.from(deduped.values())
+    });
+
+  } catch (err) {
+    console.error("get-properties-for-active-polygons error:", err);
+    return json({ error: err.message }, 500);
+  }
+}
+
+function getBoundingBox(coords) {
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLng = Infinity;
+  let maxLng = -Infinity;
+
+  for (const point of coords) {
+    const lat = Array.isArray(point) ? Number(point[0]) : Number(point.lat);
+    const lng = Array.isArray(point) ? Number(point[1]) : Number(point.lng);
+
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+  }
+
+  return { minLat, maxLat, minLng, maxLng };
+}
+
+function pointInPolygon(point, polygon) {
+  const y = point[0]; // lat
+  const x = point[1]; // lng
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const yi = Array.isArray(polygon[i]) ? Number(polygon[i][0]) : Number(polygon[i].lat);
+    const xi = Array.isArray(polygon[i]) ? Number(polygon[i][1]) : Number(polygon[i].lng);
+    const yj = Array.isArray(polygon[j]) ? Number(polygon[j][0]) : Number(polygon[j].lat);
+    const xj = Array.isArray(polygon[j]) ? Number(polygon[j][1]) : Number(polygon[j].lng);
+
+    const intersects =
+      ((yi > y) !== (yj > y)) &&
+      (x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-12) + xi);
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
 
 async function handleUpdateArea(request, env) {
   try {

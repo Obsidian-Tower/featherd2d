@@ -153,6 +153,7 @@
   </div>
 
   <script>
+    let propertyMarkers = [];
     let map;
     let userMarker = null;
     let userAccuracyCircle = null;
@@ -218,6 +219,59 @@
       }
     }
 
+    async function refreshPropertiesForActivePolygons() {
+      try {
+        // 1. Clear existing property pins
+        propertyMarkers.forEach(marker => marker.setMap(null));
+        propertyMarkers = [];
+
+        // 2. Ask backend for all properties inside all active polygons for this user
+        const res = await fetch("https://featherd2d.coryzuber.workers.dev/get-properties-for-active-polygons", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user: CURRENT_USER
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("❌ Failed to refresh properties:", data);
+          return;
+        }
+
+        const properties = Array.isArray(data.properties) ? data.properties : [];
+
+        // 3. Draw fresh pins
+        properties.forEach(row => {
+          if (typeof row.lat !== "number" || typeof row.lng !== "number") return;
+
+          const marker = new google.maps.Marker({
+            position: { lat: row.lat, lng: row.lng },
+            map,
+            title: row.PHY_ADDR1 || row.PARCEL_ID || `Property ${row.property_id}`,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 6,
+              fillColor: "#22c55e",
+              fillOpacity: 1,
+              strokeColor: "#000",
+              strokeWeight: 1
+            }
+          });
+
+          propertyMarkers.push(marker);
+        });
+
+        console.log(`✅ Rendered ${propertyMarkers.length} property markers`);
+      } catch (err) {
+        console.error("❌ refreshPropertiesForActivePolygons error:", err);
+      }
+    }
+
     function addLayerUI(polyObj) {
       const list = document.getElementById("layerList");
 
@@ -241,7 +295,7 @@
       label.className = "layer-label";
       label.textContent = polyObj.name || `area-${polyObj.id}`;
 
-      checkbox.addEventListener("change", () => {
+      checkbox.addEventListener("change", async () => {
         const visible = checkbox.checked;
 
         polyObj.visible = visible;
@@ -253,9 +307,10 @@
           ACTIVE_POLYGONS.delete(polyObj.id);
         }
 
-        updateActivePolygons();
+        await updateActivePolygons();
+        await refreshPropertiesForActivePolygons();
       });
-
+      
       item.appendChild(checkbox);
       item.appendChild(colorBox);
       item.appendChild(label);
@@ -478,8 +533,9 @@
         showCurrentUser();
 
         fetchAllPolygons().then(() => {
-          fetchActivePolygons().then(() => {
+          fetchActivePolygons().then(async () => {
             applyActiveStateToUI();
+            await refreshPropertiesForActivePolygons();
             getUserLocation();
           });
         });
