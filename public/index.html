@@ -365,10 +365,11 @@
 
               btn.onclick = async () => {
                 try {
-                  // 🔥 SEND TO BACKEND (NEW TABLE)
-                  await fetch("https://featherd2d.coryzuber.workers.dev/update-property-disposition", {
+                  const res = await fetch("https://featherd2d.coryzuber.workers.dev/update-property-disposition", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                      "Content-Type": "application/json"
+                    },
                     body: JSON.stringify({
                       property_id: row.property_id,
                       user: CURRENT_USER,
@@ -376,38 +377,20 @@
                     })
                   });
 
-                  // 🔥 instant UI update (no reload needed)
-                  const fillColor = STATUS_COLORS[status];
+                  const data = await res.json();
 
-                  marker.setIcon({
-                    path: google.maps.SymbolPath.CIRCLE,
-                    scale: 15,
-                    fillColor,
-                    fillOpacity: 1,
-                    strokeWeight: 1,
-                    strokeColor: "#000"
-                  });
-
-                  // 🔥 update label color
-                  if (marker.getLabel()) {
-                    marker.setLabel({
-                      ...marker.getLabel(),
-                      color: "#ffffff"
-                    });
+                  if (!res.ok || !data.success) {
+                    console.error("❌ Backend rejected update:", data);
+                    return;
                   }
 
-                  // 🔥 update button highlight
-                  btnWrap.querySelectorAll("button").forEach(b => b.style.outline = "none");
-                  btn.style.outline = "2px solid white";
-
-                  // 🔥 update local state
-                  row.current_status = status;
+                  // 🔥 THIS IS THE ONLY THING YOU SHOULD DO
+                  await refreshPropertiesForActivePolygons();
 
                 } catch (err) {
-                  console.error("❌ Failed to update disposition:", err);
+                  console.error("❌ Network error:", err);
                 }
               };
-
               btnWrap.appendChild(btn);
             });
 

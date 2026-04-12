@@ -13,6 +13,10 @@ export default {
     if (url.pathname === "/get-current-parcels") {
       return handleGetCurrentParcels(request, env);
     }
+
+    if (request.method === "POST" && url.pathname === "/update-property-disposition") {
+      return handleUpdatePropertyDisposition(request, env);
+    }
     
     if (url.pathname === "/") {
       return serveStatic("index.html", env);
@@ -96,6 +100,54 @@ export default {
 // ================================
 // 🔥 HANDLERS
 // ================================
+
+async function handleUpdatePropertyDisposition(request, env) {
+  try {
+    const body = await request.json();
+    const { property_id, user, disposition } = body;
+
+    console.log("📥 update-property-disposition:", body);
+
+    if (!property_id || !user || !disposition) {
+      return json({ error: "Missing property_id, user, or disposition" }, 400);
+    }
+
+    // 🔥 insert new history row
+    const result = await env.DB.prepare(`
+      INSERT INTO property_disposition_history
+      (property_id, user, disposition)
+      VALUES (?, ?, ?)
+    `)
+      .bind(
+        Number(property_id),
+        user,
+        disposition
+      )
+      .run();
+
+    console.log("✅ Insert result:", result);
+
+    // 🔥 fetch the row we just inserted (ground truth)
+    const inserted = await env.DB.prepare(`
+      SELECT *
+      FROM property_disposition_history
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(result.meta.last_row_id)
+      .first();
+
+    return json({
+      success: true,
+      record: inserted
+    });
+
+  } catch (err) {
+    console.error("❌ update-property-disposition error:", err);
+    return json({ error: err.message }, 500);
+  }
+}
+
 async function handleGetPropertyDispositions(request, env) {
   console.log("🚀 ENTER handleGetPropertyDispositions");
 
