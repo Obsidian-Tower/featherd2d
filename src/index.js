@@ -101,12 +101,22 @@ async function handleGetPropertyDispositions(request, env) {
     const body = await request.json();
     const property_ids = body.property_ids;
 
-    if (!property_ids || !property_ids.length) {
-      return json({ error: "No property_ids provided" }, 400);
+    // ✅ allow empty input
+    if (!Array.isArray(property_ids) || property_ids.length === 0) {
+      return json([]);
     }
 
-    // 🔥 dynamic (?, ?, ?, ...)
-    const placeholders = property_ids.map(() => "?").join(",");
+    // ✅ clean IDs
+    const normalizedIds = property_ids
+      .map(id => Number(id))
+      .filter(id => Number.isFinite(id));
+
+    // ✅ if nothing valid → return empty (NO ERROR)
+    if (normalizedIds.length === 0) {
+      return json([]);
+    }
+
+    const placeholders = normalizedIds.map(() => "?").join(",");
 
     const query = `
       SELECT pdh.*
@@ -120,26 +130,19 @@ async function handleGetPropertyDispositions(request, env) {
       ON pdh.id = latest.max_id
     `;
 
-    const normalizedIds = property_ids
-      .map(id => Number(id))
-      .filter(id => Number.isFinite(id));
-      
-    if (!normalizedIds.length) {
-      return json([]);
-    }
     const rows = await env.DB
       .prepare(query)
       .bind(...normalizedIds)
       .all();
 
+    // ✅ empty table → returns []
     return json(rows.results || []);
 
   } catch (err) {
-    console.error("get-property-dispositions error:", err);
+    console.error("❌ get-property-dispositions error:", err);
     return json({ error: err.message }, 500);
   }
 }
-
 async function handleGetPropertiesForActivePolygons(request, env) {
   try {
     const body = await request.json();
