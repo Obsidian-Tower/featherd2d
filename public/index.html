@@ -8,49 +8,334 @@
     html, body {
       height: 100%;
       margin: 0;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      font-family: sans-serif;
     }
 
     #map {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
+    }
+
+    .layer-panel {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 12px;
+      border-radius: 10px;
+      max-height: 300px;
+      overflow: auto;
+      min-width: 220px;
+    }
+
+    .layer-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .color-box {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex: 0 0 12px;
+    }
+
+    #uiToggleWrapper {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      z-index: 9999;
+      transform: scale(1);
+      transform-origin: bottom left;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 28px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #444;
+      border-radius: 34px;
+      transition: 0.3s;
+    }
+
+    .slider:before {
+      content: "";
+      position: absolute;
+      height: 22px;
+      width: 22px;
+      left: 3px;
+      top: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    input:checked + .slider {
+      background-color: #16a34a;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+
+    .ui-group {
+      transition: opacity 0.25s ease;
+    }
+
+    .user-badge {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .layer-title {
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .layer-label {
+      white-space: nowrap;
+    }
+
+    .empty-state {
+      opacity: 0.7;
+      font-size: 13px;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
+  <div id="uiToggleWrapper">
+    <label class="switch">
+      <input type="checkbox" id="uiToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div id="userBadge" class="user-badge ui-group" style="display:none;"></div>
+
+  <div class="layer-panel ui-group">
+    <div class="layer-title">Areas</div>
+    <div id="layerList">
+      <div class="empty-state">Loading…</div>
+    </div>
+  </div>
+
   <script>
     let map;
     let userMarker = null;
     let userAccuracyCircle = null;
+
     let CURRENT_USER = null;
+    let ACTIVE_POLYGONS = new Set();
+    let polygons = [];
 
     function getUserFromURL() {
       const params = new URLSearchParams(window.location.search);
       return params.get("user");
     }
 
-    function initMap() {
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: 29.187, lng: -82.140 },
-        zoom: 16,
-        gestureHandling: "greedy",
-        mapTypeId: "hybrid",
-        styles: [
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
-          { featureType: "transit", stylers: [{ visibility: "off" }] }
-        ]
+    function getRandomColor() {
+      const colors = ["#ef4444", "#22c55e", "#3b82f6", "#f59e0b", "#a855f7", "#14b8a6"];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function applyUIToggle(visible) {
+      document.querySelectorAll(".ui-group").forEach(el => {
+        el.style.opacity = visible ? "1" : "0";
+        el.style.pointerEvents = visible ? "auto" : "none";
+      });
+    }
+
+    async function fetchActivePolygons() {
+      try {
+        const res = await fetch(
+          `https://lightwalk.coryzuber.workers.dev/get-active-polygons?user=${encodeURIComponent(CURRENT_USER)}`
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Failed to fetch active polygons:", data);
+          return;
+        }
+
+        ACTIVE_POLYGONS = new Set(data.active_polygons || []);
+        console.log("✅ Active polygons:", ACTIVE_POLYGONS);
+      } catch (err) {
+        console.error("❌ fetchActivePolygons error:", err);
+      }
+    }
+
+    async function updateActivePolygons() {
+      try {
+        const list = Array.from(ACTIVE_POLYGONS);
+
+        await fetch("https://lightwalk.coryzuber.workers.dev/update-active-polygons", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user: CURRENT_USER,
+            active_polygons: list
+          })
+        });
+
+        console.log("✅ Active polygons updated:", list);
+      } catch (err) {
+        console.error("❌ updateActivePolygons error:", err);
+      }
+    }
+
+    function addLayerUI(polyObj) {
+      const list = document.getElementById("layerList");
+
+      if (list.querySelector(".empty-state")) {
+        list.innerHTML = "";
+      }
+
+      const item = document.createElement("div");
+      item.className = "layer-item";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.dataset.id = polyObj.id;
+      checkbox.checked = ACTIVE_POLYGONS.has(polyObj.id);
+
+      const colorBox = document.createElement("div");
+      colorBox.className = "color-box";
+      colorBox.style.background = polyObj.color;
+
+      const label = document.createElement("span");
+      label.className = "layer-label";
+      label.textContent = polyObj.name || `area-${polyObj.id}`;
+
+      checkbox.addEventListener("change", () => {
+        const visible = checkbox.checked;
+
+        polyObj.visible = visible;
+        polyObj.polygon.setMap(visible ? map : null);
+
+        if (visible) {
+          ACTIVE_POLYGONS.add(polyObj.id);
+        } else {
+          ACTIVE_POLYGONS.delete(polyObj.id);
+        }
+
+        updateActivePolygons();
       });
 
-      const urlUser = getUserFromURL();
+      item.appendChild(checkbox);
+      item.appendChild(colorBox);
+      item.appendChild(label);
+      list.appendChild(item);
+    }
 
-      if (urlUser) {
-        CURRENT_USER = urlUser;
-        console.log("👤 User from URL:", CURRENT_USER);
-        getUserLocation();
-      } else {
-        showUserSelectionModal();
+    function applyActiveStateToUI() {
+      polygons.forEach(polyObj => {
+        const isActive = ACTIVE_POLYGONS.has(polyObj.id);
+
+        polyObj.visible = isActive;
+        polyObj.polygon.setMap(isActive ? map : null);
+      });
+
+      const checkboxes = document.querySelectorAll("#layerList input[type='checkbox']");
+      checkboxes.forEach(cb => {
+        const id = Number(cb.dataset.id);
+        cb.checked = ACTIVE_POLYGONS.has(id);
+      });
+    }
+
+    async function fetchAllPolygons() {
+      try {
+        const res = await fetch("https://lightwalk.coryzuber.workers.dev/get-polygons");
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("❌ Failed to fetch polygons:", data);
+          return;
+        }
+
+        console.log("✅ ALL POLYGONS:", data);
+
+        polygons.forEach(p => p.polygon?.setMap(null));
+        polygons = [];
+        document.getElementById("layerList").innerHTML = '<div class="empty-state">Loading…</div>';
+
+        data.forEach(row => {
+          const color = getRandomColor();
+
+          const path = row.coords.map(([lat, lng]) =>
+            new google.maps.LatLng(lat, lng)
+          );
+
+          const polygon = new google.maps.Polygon({
+            paths: path,
+            strokeColor: color,
+            fillColor: color,
+            fillOpacity: 0.2,
+            strokeWeight: 2,
+            map: null,
+            clickable: false
+          });
+
+          const polyObj = {
+            id: row.id,
+            name: row.name,
+            polygon,
+            path,
+            color,
+            visible: false
+          };
+
+          polygons.push(polyObj);
+          addLayerUI(polyObj);
+        });
+
+        if (!polygons.length) {
+          document.getElementById("layerList").innerHTML = '<div class="empty-state">No areas found.</div>';
+        }
+      } catch (err) {
+        console.error("❌ fetchAllPolygons error:", err);
+        document.getElementById("layerList").innerHTML = '<div class="empty-state">Failed to load areas.</div>';
       }
+    }
+
+    function showCurrentUser() {
+      const badge = document.getElementById("userBadge");
+      badge.textContent = `User: ${CURRENT_USER}`;
+      badge.style.display = "block";
     }
 
     function showUserSelectionModal() {
@@ -166,7 +451,44 @@
         }
       );
     }
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 29.187, lng: -82.140 },
+        zoom: 16,
+        gestureHandling: "greedy",
+        mapTypeId: "hybrid",
+        styles: [
+          { featureType: "poi", stylers: [{ visibility: "off" }] },
+          { featureType: "transit", stylers: [{ visibility: "off" }] }
+        ]
+      });
+
+      const toggle = document.getElementById("uiToggle");
+      applyUIToggle(false);
+
+      toggle.addEventListener("change", (e) => {
+        applyUIToggle(e.target.checked);
+      });
+
+      const urlUser = getUserFromURL();
+
+      if (urlUser) {
+        CURRENT_USER = urlUser;
+        showCurrentUser();
+
+        fetchAllPolygons().then(() => {
+          fetchActivePolygons().then(() => {
+            applyActiveStateToUI();
+            getUserLocation();
+          });
+        });
+      } else {
+        showUserSelectionModal();
+      }
+    }
   </script>
+
   <script async
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBGFCA70J_CRFo-FxwoSpN3ZjpMicNeVfM&callback=initMap">
   </script>
