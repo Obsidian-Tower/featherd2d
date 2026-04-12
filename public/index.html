@@ -226,11 +226,40 @@
     .gm-style .gm-style-iw {
       padding: 0 !important;
     }
+
+    #clusterToggleWrapper {
+      position: absolute;
+      bottom: 54px;
+      left: 12px;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 8px 10px;
+      border-radius: 10px;
+      transform: scale(1);
+      transform-origin: bottom left;
+    }
+
+    .toggle-label {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
-
+  <div id="clusterToggleWrapper" class="ui-group">
+    <span class="toggle-label">Cluster</span>
+    <label class="switch">
+      <input type="checkbox" id="clusterToggle" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
   <div id="uiToggleWrapper">
     <label class="switch">
       <input type="checkbox" id="uiToggle">
@@ -249,6 +278,8 @@
 
   <script>
     let propertyMarkers = [];
+    let markerCluster = null;
+    let clusteringEnabled = true;
     let map;
     let userMarker = null;
     let userAccuracyCircle = null;
@@ -306,6 +337,29 @@
       return colors[Math.floor(Math.random() * colors.length)];
     }
 
+        function clearMarkerCluster() {
+      if (markerCluster) {
+        markerCluster.clearMarkers();
+        markerCluster = null;
+      }
+    }
+
+    function syncMarkerDisplay() {
+      clearMarkerCluster();
+
+      if (!propertyMarkers.length) return;
+
+      if (clusteringEnabled) {
+        propertyMarkers.forEach(marker => marker.setMap(null));
+        markerCluster = new markerClusterer.MarkerClusterer({
+          map,
+          markers: propertyMarkers
+        });
+      } else {
+        propertyMarkers.forEach(marker => marker.setMap(map));
+      }
+    }
+
     function applyUIToggle(visible) {
       document.querySelectorAll(".ui-group").forEach(el => {
         el.style.opacity = visible ? "1" : "0";
@@ -356,6 +410,7 @@
     async function refreshPropertiesForActivePolygons() {
       try {
         // 🔥 clear existing markers
+        clearMarkerCluster();
         propertyMarkers.forEach(marker => marker.setMap(null));
         propertyMarkers = [];
 
@@ -416,9 +471,8 @@
 
           const marker = new google.maps.Marker({
             position: { lat: row.lat, lng: row.lng },
-            map,
+            map: clusteringEnabled ? null : map,
 
-            // 🔥 EXACT styling from large file
             icon: {
               path: google.maps.SymbolPath.CIRCLE,
               scale: 15,
@@ -428,7 +482,6 @@
               strokeColor: "#000"
             },
 
-            // 🔥 address number label
             ...(addressNumber && {
               label: {
                 text: addressNumber,
@@ -721,7 +774,7 @@
           });
           propertyMarkers.push(marker);
         });
-
+        syncMarkerDisplay();
         console.log(`✅ Rendered ${propertyMarkers.length} markers`);
 
       } catch (err) {
@@ -970,11 +1023,30 @@
         zoom: 16,
         gestureHandling: "greedy",
         mapTypeId: "hybrid",
+        tilt: 0,
+        heading: 0,
+        rotateControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
         styles: [
           { featureType: "poi", stylers: [{ visibility: "off" }] },
           { featureType: "transit", stylers: [{ visibility: "off" }] }
         ]
       });
+      
+      const forceTopDown = () => {
+        if (map.getTilt && map.getTilt() !== 0) {
+          map.setTilt(0);
+        }
+        if (map.getHeading && map.getHeading() !== 0) {
+          map.setHeading(0);
+        }
+      };
+
+      forceTopDown();
+      map.addListener("zoom_changed", forceTopDown);
+      map.addListener("idle", forceTopDown);
+      map.addListener("maptypeid_changed", forceTopDown);
 
       map.addListener("click", () => {
         if (activeInfoWindow) {
@@ -988,6 +1060,14 @@
 
       toggle.addEventListener("change", (e) => {
         applyUIToggle(e.target.checked);
+      });
+
+      const clusterToggle = document.getElementById("clusterToggle");
+      clusterToggle.checked = clusteringEnabled;
+
+      clusterToggle.addEventListener("change", (e) => {
+        clusteringEnabled = e.target.checked;
+        syncMarkerDisplay();
       });
 
       const urlUser = getUserFromURL();
@@ -1008,7 +1088,7 @@
       }
     }
   </script>
-
+  <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
   <script async
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBGFCA70J_CRFo-FxwoSpN3ZjpMicNeVfM&callback=initMap">
   </script>
