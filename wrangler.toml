@@ -8,4 +8,3 @@ database_id = "454dd797-6886-4892-b212-750a36860915"
 
 [assets]
 directory = "./public"
-binding = "ASSETS"
