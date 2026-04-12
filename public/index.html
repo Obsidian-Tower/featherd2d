@@ -1028,6 +1028,7 @@
         rotateControl: false,
         streetViewControl: false,
         fullscreenControl: false,
+        isFractionalZoomEnabled: true,
         styles: [
           { featureType: "poi", stylers: [{ visibility: "off" }] },
           { featureType: "transit", stylers: [{ visibility: "off" }] }
@@ -1038,9 +1039,7 @@
         if (map.getTilt && map.getTilt() !== 0) {
           map.setTilt(0);
         }
-        if (map.getHeading && map.getHeading() !== 0) {
-          map.setHeading(0);
-        }
+        
       };
 
       forceTopDown();
