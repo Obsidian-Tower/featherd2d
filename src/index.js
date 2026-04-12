@@ -434,22 +434,22 @@ async function handleUpdateArea(request, env) {
 async function handleGetNotes(request, env) {
   try {
     const body = await request.json();
-    const { parcel_ids } = body;
+    const { property_ids } = body;
 
-    if (!parcel_ids || !parcel_ids.length) {
-      return json({ error: "No parcel_ids provided" }, 400);
+    if (!property_ids || !property_ids.length) {
+      return json({ error: "No property_ids provided" }, 400);
     }
 
-    const placeholders = parcel_ids.map(() => "?").join(",");
+    const placeholders = property_ids.map(() => "?").join(",");
 
     const query = `
       SELECT *
-      FROM parcel_notes
-      WHERE parcel_id IN (${placeholders})
+      FROM property_notes
+      WHERE property_id IN (${placeholders})
       ORDER BY created_at ASC
     `;
 
-    const normalizedIds = parcel_ids.map(id => id.toString());
+    const normalizedIds = property_ids.map(id => id.toString());
 
     const rows = await env.DB
       .prepare(query)
@@ -468,30 +468,29 @@ async function handleAddNote(request, env) {
   try {
     const body = await request.json();
 
-    const { parcel_id, user, note } = body;
+    const { property_id, user, note } = body;
 
-    if (!parcel_id || !user || !note) {
-      return json({ error: "Missing parcel_id, user, or note" }, 400);
+    if (!property_id || !user || !note) {
+      return json({ error: "Missing property_id, user, or note" }, 400);
     }
 
     const id = crypto.randomUUID();
 
     await env.DB.prepare(`
-      INSERT INTO parcel_notes (id, parcel_id, user, note, created_at)
+      INSERT INTO property_notes (id, property_id, user, note, created_at)
       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
     `)
       .bind(
         id,
-        parcel_id.toString(),
+        property_id.toString(),
         user,
         note
       )
       .run();
 
-    // 🔥 return the inserted note (matches your pattern)
     const inserted = await env.DB.prepare(`
       SELECT *
-      FROM parcel_notes
+      FROM property_notes
       WHERE id = ?
       LIMIT 1
     `)

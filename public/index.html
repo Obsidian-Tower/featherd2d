@@ -462,7 +462,7 @@
 
             const notesThread = document.createElement("div");
             notesThread.className = "notes-thread";
-
+            notesThread.innerHTML = "";
             (async () => {
               try {
                 const res = await fetch("https://featherd2d.coryzuber.workers.dev/get-notes", {
