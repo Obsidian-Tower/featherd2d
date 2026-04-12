@@ -120,8 +120,13 @@ async function handleGetPropertyDispositions(request, env) {
       ON pdh.id = latest.max_id
     `;
 
-    const normalizedIds = property_ids.map(id => Number(id));
-
+    const normalizedIds = property_ids
+      .map(id => Number(id))
+      .filter(id => Number.isFinite(id));
+      
+    if (!normalizedIds.length) {
+      return json([]);
+    }
     const rows = await env.DB
       .prepare(query)
       .bind(...normalizedIds)
