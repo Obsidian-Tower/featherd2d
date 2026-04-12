@@ -37,7 +37,96 @@
       });
 
       getUserLocation();
+      map.addListener("click", () => {
+        if (activeInfoWindow) {
+          activeInfoWindow.close();
+          activeInfoWindow = null;
+        }
+      });
+      const urlUser = getUserFromURL();
+
+      if (urlUser) {
+        CURRENT_USER = urlUser;
+        console.log("👤 User from URL:", CURRENT_USER);
+
+        // 🔥 STEP 1: load ALL polygons first
+        fetchAllPolygons().then(() => {
+
+          // 🔥 STEP 2: then load active state
+          fetchActivePolygons().then(() => {
+
+            // 🔥 STEP 3: apply active state to UI
+            applyActiveStateToUI();
+
+          });
+
+        });
+
+      } else {
+        showUserSelectionModal();
+      }
     }
+
+    function showUserSelectionModal() {
+      const overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.top = "0";
+      overlay.style.left = "0";
+      overlay.style.width = "100%";
+      overlay.style.height = "100%";
+      overlay.style.background = "rgba(0,0,0,0.85)";
+      overlay.style.display = "flex";
+      overlay.style.alignItems = "center";
+      overlay.style.justifyContent = "center";
+      overlay.style.zIndex = "99999";
+
+      const box = document.createElement("div");
+      box.style.background = "#111";
+      box.style.padding = "30px";
+      box.style.borderRadius = "12px";
+      box.style.textAlign = "center";
+      box.style.color = "white";
+      box.style.minWidth = "250px";
+
+      const title = document.createElement("div");
+      title.textContent = "Select User";
+      title.style.marginBottom = "20px";
+      title.style.fontSize = "18px";
+      title.style.fontWeight = "600";
+
+      box.appendChild(title);
+
+      const users = ["Cory", "James", "Caleb", "Edward"];
+
+      users.forEach(user => {
+        const btn = document.createElement("button");
+
+        btn.textContent = user;
+        btn.style.display = "block";
+        btn.style.width = "100%";
+        btn.style.marginBottom = "10px";
+        btn.style.padding = "10px";
+        btn.style.borderRadius = "8px";
+        btn.style.border = "none";
+        btn.style.cursor = "pointer";
+        btn.style.background = "#2563eb";
+        btn.style.color = "white";
+
+        btn.onclick = () => {
+          const url = new URL(window.location.href);
+          url.searchParams.set("user", user);
+
+          // 🔥 redirect to same page with user param
+          window.location.href = url.toString();
+        };
+
+        box.appendChild(btn);
+      });
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+    }
+
 
     function getUserLocation() {
       if (!navigator.geolocation) {
