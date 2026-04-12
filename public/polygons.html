@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Polygon Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      font-family: sans-serif;
+      background: #000;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #drawOverlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      pointer-events: none;
+      cursor: crosshair;
+    }
+
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: rgba(0,0,0,0.88);
+      padding: 12px;
+      border-radius: 12px;
+      color: white;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      max-width: calc(100vw - 24px);
+      box-sizing: border-box;
+    }
+
+    button,
+    input[type="text"] {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      filter: brightness(1.08);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .danger {
+      background: #dc2626;
+    }
+
+    .success {
+      background: #16a34a;
+    }
+
+    .neutral {
+      background: #4b5563;
+    }
+
+    .active-draw {
+      background: #16a34a !important;
+    }
+
+    .editing-btn {
+      background: #f59e0b !important;
+      color: #111;
+      font-weight: 700;
+    }
+
+    .layer-panel {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      z-index: 10;
+      background: rgba(0,0,0,0.92);
+      color: white;
+      padding: 12px;
+      border-radius: 12px;
+      width: 300px;
+      max-width: calc(100vw - 20px);
+      max-height: min(60vh, 520px);
+      overflow: auto;
+      box-sizing: border-box;
+    }
+
+    .layer-panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+    }
+
+    .layer-item {
+      display: grid;
+      grid-template-columns: auto 14px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      margin-bottom: 8px;
+    }
+
+    .layer-item.active {
+      outline: 2px solid #2563eb;
+      background: rgba(37,99,235,0.14);
+    }
+
+    .color-box {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    .layer-name {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+
+    .mini-btn {
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      background: #374151;
+    }
+
+    #editorPanel {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      z-index: 10;
+      background: rgba(0,0,0,0.92);
+      color: white;
+      padding: 12px;
+      border-radius: 12px;
+      width: 320px;
+      max-width: calc(100vw - 20px);
+      box-sizing: border-box;
+    }
+
+    #editorPanel h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+    }
+
+    #editorPanel .row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    #editorPanel input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      background: #111827;
+      color: white;
+      border: 1px solid #374151;
+    }
+
+    #editorStatus {
+      font-size: 12px;
+      opacity: 0.8;
+      min-height: 16px;
+    }
+
+    #uiToggleWrapper {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      z-index: 9999;
+      transform-origin: bottom left;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 28px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #444;
+      border-radius: 34px;
+      transition: 0.3s;
+    }
+
+    .slider:before {
+      content: "";
+      position: absolute;
+      height: 22px;
+      width: 22px;
+      left: 3px;
+      top: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    input:checked + .slider {
+      background-color: #16a34a;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+
+    .ui-group {
+      transition: opacity 0.25s ease;
+    }
+
+    @media (max-width: 700px) {
+      .controls {
+        top: 8px;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .layer-panel,
+      #editorPanel {
+        width: calc(100vw - 20px);
+      }
+
+      .layer-panel {
+        max-height: 42vh;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+  <div id="drawOverlay"></div>
+
+  <div id="uiToggleWrapper">
+    <label class="switch">
+      <input type="checkbox" id="uiToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="controls ui-group">
+    <button id="drawBtn" onclick="startDrawing()">Tap to Draw</button>
+    <button onclick="finishDrawing()">Finish Polygon</button>
+    <button class="neutral" onclick="cancelDrawing()">Cancel Draw</button>
+    <button class="success" onclick="saveSelectedPolygonEdits()">Save Selected</button>
+    <button class="danger" onclick="deleteSelectedPolygon()">Delete Selected</button>
+    <button class="neutral" onclick="clearSelection()">Clear Selection</button>
+  </div>
+
+  <div id="editorPanel" class="ui-group">
+    <h3>Polygon Editor</h3>
+
+    <div class="row">
+      <input id="polygonNameInput" type="text" placeholder="Selected polygon name" />
+      <button onclick="renameSelectedPolygon()">Rename</button>
+    </div>
+
+    <div class="row">
+      <button id="editSelectedBtn" class="neutral" onclick="toggleEditSelectedPolygon()">Edit Vertices</button>
+      <button class="neutral" onclick="zoomToSelectedPolygon()">Zoom To</button>
+    </div>
+
+    <div id="editorStatus">No polygon selected.</div>
+  </div>
+
+  <div class="layer-panel ui-group">
+    <h3>Polygons</h3>
+    <div id="layerList"></div>
+  </div>
+
+  <script>
+    let CURRENT_USER = null;
+    let map = null;
+
+    let drawing = false;
+    let currentPath = [];
+    let currentPolyline = null;
+    let currentVertexMarkers = [];
+    let polygons = [];
+    let selectedPolygonId = null;
+
+    const API_BASE = "https://featherd2d.coryzuber.workers.dev";
+
+    function getUserFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("user");
+    }
+
+    function getRandomColor() {
+      const colors = ["#ef4444", "#22c55e", "#3b82f6", "#f59e0b", "#a855f7", "#14b8a6"];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function setStatus(text) {
+      document.getElementById("editorStatus").textContent = text;
+    }
+
+    function getPolyObjById(id) {
+      return polygons.find(p => p.id === id) || null;
+    }
+
+    function getSelectedPolyObj() {
+      return getPolyObjById(selectedPolygonId);
+    }
+
+    function setSelectedPolygon(id) {
+      selectedPolygonId = id;
+
+      polygons.forEach(polyObj => {
+        const isSelected = polyObj.id === id;
+
+        polyObj.polygon.setOptions({
+          strokeWeight: isSelected ? 4 : 2,
+          fillOpacity: isSelected ? 0.28 : 0.20,
+          editable: isSelected ? !!polyObj.editing : false
+        });
+
+        if (polyObj.listItem) {
+          polyObj.listItem.classList.toggle("active", isSelected);
+        }
+      });
+
+      const selected = getSelectedPolyObj();
+
+      if (selected) {
+        document.getElementById("polygonNameInput").value = selected.name || "";
+        updateEditButton();
+        setStatus(`Selected: ${selected.name || `area-${selected.id}`}`);
+      } else {
+        document.getElementById("polygonNameInput").value = "";
+        updateEditButton();
+        setStatus("No polygon selected.");
+      }
+    }
+
+    function clearSelection() {
+      if (selectedPolygonId !== null) {
+        const polyObj = getSelectedPolyObj();
+        if (polyObj) {
+          polyObj.editing = false;
+          polyObj.polygon.setEditable(false);
+        }
+      }
+
+      selectedPolygonId = null;
+      polygons.forEach(polyObj => {
+        polyObj.polygon.setOptions({
+          strokeWeight: 2,
+          fillOpacity: 0.20,
+          editable: false
+        });
+
+        if (polyObj.listItem) {
+          polyObj.listItem.classList.remove("active");
+        }
+      });
+
+      document.getElementById("polygonNameInput").value = "";
+      updateEditButton();
+      setStatus("No polygon selected.");
+    }
+
+    function updateEditButton() {
+      const btn = document.getElementById("editSelectedBtn");
+      const polyObj = getSelectedPolyObj();
+
+      if (!polyObj) {
+        btn.textContent = "Edit Vertices";
+        btn.className = "neutral";
+        return;
+      }
+
+      if (polyObj.editing) {
+        btn.textContent = "Stop Editing";
+        btn.className = "editing-btn";
+      } else {
+        btn.textContent = "Edit Vertices";
+        btn.className = "neutral";
+      }
+    }
+
+    function showUserSelectionModal() {
+      const overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.background = "rgba(0,0,0,0.85)";
+      overlay.style.display = "flex";
+      overlay.style.alignItems = "center";
+      overlay.style.justifyContent = "center";
+      overlay.style.zIndex = "99999";
+
+      const box = document.createElement("div");
+      box.style.background = "#111";
+      box.style.padding = "30px";
+      box.style.borderRadius = "12px";
+      box.style.textAlign = "center";
+      box.style.color = "white";
+      box.style.minWidth = "250px";
+
+      const title = document.createElement("div");
+      title.textContent = "Select User";
+      title.style.marginBottom = "20px";
+      title.style.fontSize = "18px";
+      title.style.fontWeight = "600";
+      box.appendChild(title);
+
+      const users = ["Cory", "James", "Caleb", "Edward"];
+
+      users.forEach(user => {
+        const btn = document.createElement("button");
+        btn.textContent = user;
+        btn.style.display = "block";
+        btn.style.width = "100%";
+        btn.style.marginBottom = "10px";
+        btn.style.padding = "10px";
+        btn.style.borderRadius = "8px";
+        btn.style.border = "none";
+        btn.style.cursor = "pointer";
+        btn.style.background = "#2563eb";
+        btn.style.color = "white";
+
+        btn.onclick = () => {
+          const url = new URL(window.location.href);
+          url.searchParams.set("user", user);
+          window.location.href = url.toString();
+        };
+
+        box.appendChild(btn);
+      });
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+    }
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 29.187, lng: -82.140 },
+        zoom: 16,
+        gestureHandling: "greedy",
+        mapTypeId: "hybrid",
+        styles: [
+          { featureType: "poi", stylers: [{ visibility: "off" }] },
+          { featureType: "transit", stylers: [{ visibility: "off" }] }
+        ]
+      });
+
+      const urlUser = getUserFromURL();
+
+      if (urlUser) {
+        CURRENT_USER = urlUser;
+        fetchAllPolygons();
+      } else {
+        showUserSelectionModal();
+      }
+    }
+
+    function screenToLatLng(x, y) {
+      const projection = map.getProjection();
+      const bounds = map.getBounds();
+      const topRight = projection.fromLatLngToPoint(bounds.getNorthEast());
+      const bottomLeft = projection.fromLatLngToPoint(bounds.getSouthWest());
+      const scale = Math.pow(2, map.getZoom());
+
+      const worldPoint = new google.maps.Point(
+        x / scale + bottomLeft.x,
+        y / scale + topRight.y
+      );
+
+      return projection.fromPointToLatLng(worldPoint);
+    }
+
+    function clearCurrentVertexMarkers() {
+      currentVertexMarkers.forEach(m => m.setMap(null));
+      currentVertexMarkers = [];
+    }
+
+    function addVertexPoint(latLng) {
+      currentPath.push(latLng);
+      currentPolyline.setPath(currentPath);
+
+      const marker = new google.maps.Marker({
+        position: latLng,
+        map: map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 4,
+          fillColor: "#ff0000",
+          fillOpacity: 1,
+          strokeWeight: 0
+        }
+      });
+
+      currentVertexMarkers.push(marker);
+    }
+
+    function startDrawing() {
+      drawing = true;
+      currentPath = [];
+      clearCurrentVertexMarkers();
+
+      document.getElementById("drawBtn").classList.add("active-draw");
+
+      const overlay = document.getElementById("drawOverlay");
+      overlay.style.pointerEvents = "auto";
+
+      if (currentPolyline) currentPolyline.setMap(null);
+
+      currentPolyline = new google.maps.Polyline({
+        path: currentPath,
+        map: map,
+        strokeColor: "#ff0000",
+        strokeWeight: 4
+      });
+
+      overlay.onmousedown = (e) => {
+        if (!drawing) return;
+        addVertexPoint(screenToLatLng(e.clientX, e.clientY));
+      };
+
+      overlay.onmousemove = (e) => {
+        if (!drawing || currentPath.length === 0) return;
+        currentPolyline.setPath([...currentPath, screenToLatLng(e.clientX, e.clientY)]);
+      };
+
+      setStatus("Drawing new polygon...");
+    }
+
+    function cancelDrawing() {
+      drawing = false;
+      currentPath = [];
+
+      document.getElementById("drawBtn").classList.remove("active-draw");
+
+      const overlay = document.getElementById("drawOverlay");
+      overlay.style.pointerEvents = "none";
+      overlay.onmousedown = null;
+      overlay.onmousemove = null;
+
+      if (currentPolyline) {
+        currentPolyline.setMap(null);
+        currentPolyline = null;
+      }
+
+      clearCurrentVertexMarkers();
+      setStatus("Drawing cancelled.");
+    }
+
+    async function finishDrawing() {
+      if (!drawing || currentPath.length < 3) {
+        setStatus("Polygon needs at least 3 points.");
+        return;
+      }
+
+      drawing = false;
+      document.getElementById("drawBtn").classList.remove("active-draw");
+
+      const overlay = document.getElementById("drawOverlay");
+      overlay.style.pointerEvents = "none";
+      overlay.onmousedown = null;
+      overlay.onmousemove = null;
+
+      const pathCopy = [...currentPath];
+      const result = await savePolygonToBackend(pathCopy);
+
+      if (!result) {
+        setStatus("Failed to save polygon.");
+        return;
+      }
+
+      const color = getRandomColor();
+
+      const polygon = new google.maps.Polygon({
+        paths: pathCopy,
+        strokeColor: color,
+        fillColor: color,
+        fillOpacity: 0.20,
+        strokeWeight: 2,
+        editable: false,
+        draggable: false,
+        map: map
+      });
+
+      const polyObj = {
+        id: result.id,
+        name: result.name || `area-${result.id}`,
+        polygon,
+        color,
+        visible: true,
+        editing: false
+      };
+
+      attachPolygonEvents(polyObj);
+      polygons.push(polyObj);
+      addLayerUI(polyObj);
+
+      if (currentPolyline) {
+        currentPolyline.setMap(null);
+        currentPolyline = null;
+      }
+
+      clearCurrentVertexMarkers();
+      currentPath = [];
+
+      setSelectedPolygon(polyObj.id);
+      setStatus(`Created polygon: ${polyObj.name}`);
+    }
+
+    async function savePolygonToBackend(path) {
+      try {
+        const coords = path.map(p => [p.lat(), p.lng()]);
+
+        const res = await fetch(`${API_BASE}/save-polygon`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user: CURRENT_USER,
+            coords
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Save failed:", data);
+          return null;
+        }
+
+        return data;
+      } catch (err) {
+        console.error("savePolygonToBackend error:", err);
+        return null;
+      }
+    }
+
+    async function updatePolygonInBackend(polyObj) {
+      try {
+        const coords = polyObj.polygon.getPath().getArray().map(p => [p.lat(), p.lng()]);
+
+        const res = await fetch(`${API_BASE}/update-polygon`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            id: polyObj.id,
+            user: CURRENT_USER,
+            coords
+          })
+        });
+
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (_) {}
+
+        if (!res.ok) {
+          console.error("update-polygon failed:", data);
+          return false;
+        }
+
+        return true;
+      } catch (err) {
+        console.error("updatePolygonInBackend error:", err);
+        return false;
+      }
+    }
+
+    async function renamePolygonInBackend(polyObj, newName) {
+      try {
+        const res = await fetch(`${API_BASE}/rename-polygon`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            id: polyObj.id,
+            user: CURRENT_USER,
+            name: newName
+          })
+        });
+
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (_) {}
+
+        if (!res.ok) {
+          console.error("rename-polygon failed:", data);
+          return false;
+        }
+
+        return true;
+      } catch (err) {
+        console.error("renamePolygonInBackend error:", err);
+        return false;
+      }
+    }
+
+    async function deletePolygonInBackend(polyObj) {
+      try {
+        const res = await fetch(`${API_BASE}/delete-polygon`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            id: polyObj.id,
+            user: CURRENT_USER
+          })
+        });
+
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (_) {}
+
+        if (!res.ok) {
+          console.error("delete-polygon failed:", data);
+          return false;
+        }
+
+        return true;
+      } catch (err) {
+        console.error("deletePolygonInBackend error:", err);
+        return false;
+      }
+    }
+
+    function attachPolygonEvents(polyObj) {
+      polyObj.polygon.addListener("click", () => {
+        setSelectedPolygon(polyObj.id);
+      });
+    }
+
+    function addLayerUI(polyObj) {
+      const list = document.getElementById("layerList");
+
+      const item = document.createElement("div");
+      item.className = "layer-item";
+      polyObj.listItem = item;
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = true;
+
+      const colorBox = document.createElement("div");
+      colorBox.className = "color-box";
+      colorBox.style.background = polyObj.color;
+
+      const label = document.createElement("div");
+      label.className = "layer-name";
+      label.textContent = polyObj.name || `area-${polyObj.id}`;
+
+      const selectBtn = document.createElement("button");
+      selectBtn.className = "mini-btn";
+      selectBtn.textContent = "Select";
+
+      checkbox.addEventListener("change", () => {
+        polyObj.visible = checkbox.checked;
+        polyObj.polygon.setMap(polyObj.visible ? map : null);
+
+        if (!polyObj.visible && selectedPolygonId === polyObj.id) {
+          clearSelection();
+        }
+      });
+
+      label.addEventListener("click", () => {
+        setSelectedPolygon(polyObj.id);
+      });
+
+      selectBtn.addEventListener("click", () => {
+        setSelectedPolygon(polyObj.id);
+      });
+
+      item.appendChild(checkbox);
+      item.appendChild(colorBox);
+      item.appendChild(label);
+      item.appendChild(selectBtn);
+
+      list.appendChild(item);
+    }
+
+    function toggleEditSelectedPolygon() {
+      const polyObj = getSelectedPolyObj();
+      if (!polyObj) {
+        setStatus("Select a polygon first.");
+        return;
+      }
+
+      polyObj.editing = !polyObj.editing;
+      polyObj.polygon.setEditable(polyObj.editing);
+      updateEditButton();
+      setStatus(polyObj.editing ? "Vertex editing enabled." : "Vertex editing disabled.");
+    }
+
+    async function saveSelectedPolygonEdits() {
+      const polyObj = getSelectedPolyObj();
+      if (!polyObj) {
+        setStatus("Select a polygon first.");
+        return;
+      }
+
+      const ok = await updatePolygonInBackend(polyObj);
+
+      if (!ok) {
+        setStatus("Failed to save polygon edits.");
+        return;
+      }
+
+      polyObj.editing = false;
+      polyObj.polygon.setEditable(false);
+      updateEditButton();
+      setStatus("Polygon edits saved.");
+    }
+
+    async function renameSelectedPolygon() {
+      const polyObj = getSelectedPolyObj();
+      if (!polyObj) {
+        setStatus("Select a polygon first.");
+        return;
+      }
+
+      const input = document.getElementById("polygonNameInput");
+      const newName = input.value.trim();
+
+      if (!newName) {
+        setStatus("Enter a polygon name first.");
+        return;
+      }
+
+      const ok = await renamePolygonInBackend(polyObj, newName);
+
+      if (!ok) {
+        setStatus("Failed to rename polygon.");
+        return;
+      }
+
+      polyObj.name = newName;
+
+      if (polyObj.listItem) {
+        const label = polyObj.listItem.querySelector(".layer-name");
+        if (label) label.textContent = newName;
+      }
+
+      setStatus(`Renamed to: ${newName}`);
+    }
+
+    async function deleteSelectedPolygon() {
+      const polyObj = getSelectedPolyObj();
+      if (!polyObj) {
+        setStatus("Select a polygon first.");
+        return;
+      }
+
+      const confirmed = window.confirm(`Delete "${polyObj.name || `area-${polyObj.id}`}"?`);
+      if (!confirmed) return;
+
+      const ok = await deletePolygonInBackend(polyObj);
+
+      if (!ok) {
+        setStatus("Failed to delete polygon.");
+        return;
+      }
+
+      polyObj.polygon.setMap(null);
+      if (polyObj.listItem) polyObj.listItem.remove();
+
+      polygons = polygons.filter(p => p.id !== polyObj.id);
+      clearSelection();
+      setStatus("Polygon deleted.");
+    }
+
+    function zoomToSelectedPolygon() {
+      const polyObj = getSelectedPolyObj();
+      if (!polyObj) {
+        setStatus("Select a polygon first.");
+        return;
+      }
+
+      const bounds = new google.maps.LatLngBounds();
+      polyObj.polygon.getPath().forEach(latLng => bounds.extend(latLng));
+      map.fitBounds(bounds);
+      setStatus(`Zoomed to: ${polyObj.name || `area-${polyObj.id}`}`);
+    }
+
+    async function fetchAllPolygons() {
+      try {
+        const res = await fetch(`${API_BASE}/get-polygons`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Failed to fetch polygons:", data);
+          setStatus("Failed to load polygons.");
+          return;
+        }
+
+        polygons.forEach(p => {
+          p.polygon.setMap(null);
+          if (p.listItem) p.listItem.remove();
+        });
+
+        polygons = [];
+        document.getElementById("layerList").innerHTML = "";
+
+        data.forEach(row => {
+          const color = getRandomColor();
+
+          const path = row.coords.map(([lat, lng]) => new google.maps.LatLng(lat, lng));
+
+          const polygon = new google.maps.Polygon({
+            paths: path,
+            strokeColor: color,
+            fillColor: color,
+            fillOpacity: 0.20,
+            strokeWeight: 2,
+            editable: false,
+            draggable: false,
+            map: map
+          });
+
+          const polyObj = {
+            id: row.id,
+            name: row.name || `area-${row.id}`,
+            polygon,
+            color,
+            visible: true,
+            editing: false
+          };
+
+          attachPolygonEvents(polyObj);
+          polygons.push(polyObj);
+          addLayerUI(polyObj);
+        });
+
+        setStatus(`Loaded ${polygons.length} polygons.`);
+      } catch (err) {
+        console.error("fetchAllPolygons error:", err);
+        setStatus("Failed to load polygons.");
+      }
+    }
+
+    const toggle = document.getElementById("uiToggle");
+
+    function applyUIToggle(visible) {
+      document.querySelectorAll(".ui-group").forEach(el => {
+        el.style.opacity = visible ? "1" : "0";
+        el.style.pointerEvents = visible ? "auto" : "none";
+      });
+    }
+
+    applyUIToggle(false);
+
+    toggle.addEventListener("change", (e) => {
+      applyUIToggle(e.target.checked);
+    });
+  </script>
+
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBGFCA70J_CRFo-FxwoSpN3ZjpMicNeVfM&callback=initMap">
+  </script>
+</body>
+</html>
