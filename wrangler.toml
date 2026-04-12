@@ -8,4 +8,5 @@ database_name = "featherd2d_db"
 database_id = "454dd797-6886-4892-b212-750a36860915"
 
 [assets]
-directory = "./"
+directory = "./public"
+binding = "ASSETS"
