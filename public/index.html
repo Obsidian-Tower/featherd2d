@@ -181,7 +181,7 @@
     async function fetchActivePolygons() {
       try {
         const res = await fetch(
-          `https://lightwalk.coryzuber.workers.dev/get-active-polygons?user=${encodeURIComponent(CURRENT_USER)}`
+          `https://featherd2d.coryzuber.workers.dev/get-active-polygons?user=${encodeURIComponent(CURRENT_USER)}`
         );
         const data = await res.json();
 
@@ -201,7 +201,7 @@
       try {
         const list = Array.from(ACTIVE_POLYGONS);
 
-        await fetch("https://lightwalk.coryzuber.workers.dev/update-active-polygons", {
+        await fetch("https://featherd2d.coryzuber.workers.dev/update-active-polygons", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -279,7 +279,7 @@
 
     async function fetchAllPolygons() {
       try {
-        const res = await fetch("https://lightwalk.coryzuber.workers.dev/get-polygons");
+        const res = await fetch("https://featherd2d.coryzuber.workers.dev/get-polygons");
         const data = await res.json();
 
         if (!res.ok) {
