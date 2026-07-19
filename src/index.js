@@ -76,6 +76,10 @@ export default {
       return handleGetParcels(request, env);
     }
 
+    if (request.method === "POST" && url.pathname === "/add-property") {
+      return handleAddProperty(request, env);
+    }
+
     try {
       // 🔹 Batch insert (PRIMARY)
       if (request.method === "POST" && url.pathname === "/init-parcels") {
@@ -100,6 +104,105 @@ export default {
 // ================================
 // 🔥 HANDLERS
 // ================================
+
+async function handleAddProperty(request, env) {
+  try {
+    const body = await request.json();
+
+    const {
+      OWN_NAME = null,
+      lat,
+      lng,
+      PHY_ADDR1 = null,
+      PHY_ADDR2 = null,
+      PHY_CITY = null,
+      PHY_ZIPCD = null,
+      ALT_KEY = null,
+      PARCEL_ID = null,
+      data_from = "google_maps"
+    } = body;
+
+    const latitude = Number(lat);
+    const longitude = Number(lng);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return json({
+        success: false,
+        error: "Valid lat and lng are required"
+      }, 400);
+    }
+
+    if (!PHY_ADDR1 || !String(PHY_ADDR1).trim()) {
+      return json({
+        success: false,
+        error: "PHY_ADDR1 is required"
+      }, 400);
+    }
+
+    const result = await env.DB.prepare(`
+      INSERT INTO properties (
+        OWN_NAME,
+        lat,
+        lng,
+        PHY_ADDR1,
+        PHY_ADDR2,
+        PHY_CITY,
+        PHY_ZIPCD,
+        ALT_KEY,
+        PARCEL_ID,
+        data_from,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `)
+      .bind(
+        OWN_NAME,
+        latitude,
+        longitude,
+        String(PHY_ADDR1).trim(),
+        PHY_ADDR2,
+        PHY_CITY,
+        PHY_ZIPCD,
+        ALT_KEY,
+        PARCEL_ID,
+        data_from
+      )
+      .run();
+
+    if (!result.success) {
+      return json({
+        success: false,
+        error: "Database insert failed",
+        result
+      }, 500);
+    }
+
+    const propertyId = result.meta?.last_row_id;
+
+    const insertedProperty = await env.DB.prepare(`
+      SELECT *
+      FROM properties
+      WHERE property_id = ?
+      LIMIT 1
+    `)
+      .bind(propertyId)
+      .first();
+
+    return json({
+      success: true,
+      property: insertedProperty
+    });
+
+  } catch (err) {
+    console.error("add-property error:", err);
+
+    return json({
+      success: false,
+      error: err.message
+    }, 500);
+  }
+}
 
 async function handleUpdatePropertyDisposition(request, env) {
   try {
