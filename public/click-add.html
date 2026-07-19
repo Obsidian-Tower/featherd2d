@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Click Map to Find Address</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111827;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #header {
+      padding: 14px 18px;
+      color: white;
+      background: #111827;
+    }
+
+    #header h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    #header p {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+      min-height: 400px;
+    }
+
+    .popup {
+      max-width: 280px;
+      line-height: 1.4;
+    }
+
+    .popup-title {
+      margin-bottom: 6px;
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .popup-address {
+      margin-bottom: 7px;
+      font-size: 14px;
+    }
+
+    .popup-coordinates {
+      color: #555;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="header">
+    <h1>Address Finder</h1>
+    <p>Click a house or property on the map to estimate its address.</p>
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    let map;
+    let marker;
+    let infoWindow;
+    let geocoder;
+
+    function initMap() {
+      // Starting location: Philadelphia, Pennsylvania
+      const startingLocation = {
+        lat: 39.9526,
+        lng: -75.1652
+      };
+
+      map = new google.maps.Map(
+        document.getElementById("map"),
+        {
+          center: startingLocation,
+          zoom: 18,
+          mapTypeId: "satellite",
+          streetViewControl: true,
+          mapTypeControl: true
+        }
+      );
+
+      geocoder = new google.maps.Geocoder();
+      infoWindow = new google.maps.InfoWindow();
+
+      map.addListener("click", handleMapClick);
+    }
+
+
+    async function handleMapClick(event) {
+        const clickedLocation = event.latLng;
+
+        placeMarker(clickedLocation);
+
+        showPopup(
+            clickedLocation,
+            "Looking up address...",
+            "Please wait"
+        );
+
+        try {
+            const response = await geocoder.geocode({
+            location: clickedLocation
+            });
+
+            if (!response.results || response.results.length === 0) {
+            showPopup(
+                clickedLocation,
+                "No address found",
+                "Google could not identify an address at this location."
+            );
+
+            return;
+            }
+
+            const bestResult = findBestAddress(response.results);
+            const propertyData = buildPropertyData(bestResult, clickedLocation);
+
+            showPopup(
+            clickedLocation,
+            "Saving property...",
+            propertyData.PHY_ADDR1
+            );
+
+            const savedProperty = await saveProperty(propertyData);
+
+            showPopup(
+            clickedLocation,
+            "Property saved",
+            `${savedProperty.PHY_ADDR1}
+            <br>${savedProperty.PHY_CITY || ""}
+            ${savedProperty.PHY_ZIPCD || ""}
+            <br><strong>Property ID:</strong> ${savedProperty.property_id}`
+            );
+
+            console.log("Saved property:", savedProperty);
+
+        } catch (error) {
+            console.error("Map click failed:", error);
+
+            showPopup(
+            clickedLocation,
+            "Could not save property",
+            error.message || "An unknown error occurred."
+            );
+        }
+    }
+
+    function getAddressComponent(result, type, useShortName = false) {
+        const component = result.address_components.find((item) =>
+            item.types.includes(type)
+        );
+
+        if (!component) {
+            return "";
+        }
+
+        return useShortName
+            ? component.short_name
+            : component.long_name;
+    }
+
+    function buildPropertyData(result, location) {
+        const streetNumber = getAddressComponent(
+            result,
+            "street_number"
+        );
+
+        const route = getAddressComponent(
+            result,
+            "route"
+        );
+
+        const subpremise = getAddressComponent(
+            result,
+            "subpremise"
+        );
+
+        const city =
+            getAddressComponent(result, "locality") ||
+            getAddressComponent(result, "postal_town") ||
+            getAddressComponent(result, "sublocality") ||
+            getAddressComponent(result, "administrative_area_level_2");
+
+        const state = getAddressComponent(
+            result,
+            "administrative_area_level_1",
+            true
+        );
+
+        const zipCode = getAddressComponent(
+            result,
+            "postal_code"
+        );
+
+        const streetAddress = [streetNumber, route]
+            .filter(Boolean)
+            .join(" ");
+
+        return {
+            OWN_NAME: null,
+
+            lat: location.lat(),
+            lng: location.lng(),
+
+            PHY_ADDR1:
+            streetAddress ||
+            result.formatted_address,
+
+            PHY_ADDR2:
+            subpremise
+                ? `Unit ${subpremise}`
+                : null,
+
+            PHY_CITY:
+            city || null,
+
+            PHY_ZIPCD:
+            zipCode || null,
+
+            ALT_KEY:
+            result.place_id || null,
+
+            PARCEL_ID:
+            null,
+
+            data_from:
+            "google_maps_reverse_geocode",
+
+            // This is not sent unless included by saveProperty().
+            state:
+            state || null,
+
+            formatted_address:
+            result.formatted_address
+        };
+    }
+
+    async function saveProperty(propertyData) {
+        const response = await fetch("https://featherd2d.coryzuber.workers.dev/add-property", {
+            method: "POST",
+
+            headers: {
+            "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+            OWN_NAME: propertyData.OWN_NAME,
+            lat: propertyData.lat,
+            lng: propertyData.lng,
+            PHY_ADDR1: propertyData.PHY_ADDR1,
+            PHY_ADDR2: propertyData.PHY_ADDR2,
+            PHY_CITY: propertyData.PHY_CITY,
+            PHY_ZIPCD: propertyData.PHY_ZIPCD,
+            ALT_KEY: propertyData.ALT_KEY,
+            PARCEL_ID: propertyData.PARCEL_ID,
+            data_from: propertyData.data_from
+            })
+        });
+
+        let result;
+
+        try {
+            result = await response.json();
+        } catch {
+            throw new Error(
+            `Backend returned a non-JSON response with status ${response.status}`
+            );
+        }
+
+        if (!response.ok || !result.success) {
+            throw new Error(
+            result.error ||
+            `Property upload failed with status ${response.status}`
+            );
+        }
+
+        return result.property;
+    }
+
+    function placeMarker(position) {
+      if (!marker) {
+        marker = new google.maps.Marker({
+          position: position,
+          map: map,
+          animation: google.maps.Animation.DROP
+        });
+      } else {
+        marker.setPosition(position);
+      }
+    }
+
+    function findBestAddress(results) {
+      // Prefer an exact street address when Google returns one.
+      const streetAddress = results.find((result) =>
+        result.types.includes("street_address")
+      );
+
+      if (streetAddress) {
+        return streetAddress;
+      }
+
+      // A premise is often a building, property, or named location.
+      const premise = results.find((result) =>
+        result.types.includes("premise")
+      );
+
+      if (premise) {
+        return premise;
+      }
+
+      // Fall back to Google's first and generally most precise result.
+      return results[0];
+    }
+
+    function showPopup(position, title, message) {
+        const latitude = position.lat().toFixed(6);
+        const longitude = position.lng().toFixed(6);
+
+        const popupContent = `
+            <div class="popup">
+            <div class="popup-title">
+                ${escapeHtml(title)}
+            </div>
+
+            <div class="popup-address">
+                ${message}
+            </div>
+
+            <div class="popup-coordinates">
+                Latitude: ${latitude}<br>
+                Longitude: ${longitude}
+            </div>
+            </div>
+        `;
+
+        infoWindow.setContent(popupContent);
+        infoWindow.setPosition(position);
+        infoWindow.open(map);
+    }
+    
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    window.initMap = initMap;
+  </script>
+
+  <!--
+    Replace YOUR_NEW_RESTRICTED_API_KEY with a newly generated key.
+
+    Required API:
+    - Maps JavaScript API
+
+    You may also need to enable:
+    - Geocoding API
+  -->
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDR6_LKRmyIcE92iTo3kthuhPUPC8FGfZI&callback=initMap">
+  </script>
+</body>
+</html>
