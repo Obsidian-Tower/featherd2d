@@ -249,10 +249,41 @@
       line-height: 1;
       user-select: none;
     }
+
+    #csvDownloadWrapper {
+      position: absolute;
+      bottom: 104px;
+      left: 12px;
+      z-index: 9999;
+    }
+
+    #csvDownloadBtn {
+      padding: 9px 12px;
+      border: none;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, opacity 0.2s ease;
+    }
+
+    #csvDownloadBtn:hover {
+      background: rgba(37, 99, 235, 0.95);
+    }
+
+    #csvDownloadBtn:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div id="csvDownloadWrapper" class="ui-group">
+    <button id="csvDownloadBtn">Download CSV</button>
+  </div>
   <div id="clusterToggleWrapper" class="ui-group">
     <span class="toggle-label">Cluster</span>
     <label class="switch">
@@ -278,6 +309,7 @@
 
   <script>
     let propertyMarkers = [];
+    let currentProperties = [];
     let markerCluster = null;
     let clusteringEnabled = true;
     let map;
@@ -413,6 +445,8 @@
         clearMarkerCluster();
         propertyMarkers.forEach(marker => marker.setMap(null));
         propertyMarkers = [];
+        currentProperties = [];
+        updateCSVButton();
 
         // 🔥 get properties inside active polygons
         const res = await fetch("https://featherd2d.coryzuber.workers.dev/get-properties-for-active-polygons", {
@@ -429,6 +463,10 @@
         }
 
         const properties = Array.isArray(data.properties) ? data.properties : [];
+
+        currentProperties = properties;
+
+        updateCSVButton();
 
         if (!properties.length) return;
 
@@ -1017,6 +1055,125 @@
       );
     }
 
+    
+    
+    function updateCSVButton() {
+      const btn = document.getElementById("csvDownloadBtn");
+
+      if (!btn) return;
+
+      const count = currentProperties.length;
+
+      btn.disabled = count === 0;
+      btn.textContent = count
+        ? `Download CSV (${count})`
+        : "Download CSV";
+    }
+
+
+    function escapeCSVValue(value) {
+      if (value === null || value === undefined) {
+        return "";
+      }
+
+      // Objects/arrays need to be serialized instead of becoming
+      // "[object Object]".
+      if (typeof value === "object") {
+        value = JSON.stringify(value);
+      }
+
+      const stringValue = String(value);
+
+      // CSV fields containing commas, quotes or newlines must be quoted.
+      if (
+        stringValue.includes(",") ||
+        stringValue.includes('"') ||
+        stringValue.includes("\n") ||
+        stringValue.includes("\r")
+      ) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+
+      return stringValue;
+    }
+
+
+    function downloadCurrentPropertiesCSV() {
+      if (!currentProperties.length) {
+        console.warn("No properties currently loaded.");
+        return;
+      }
+
+      /*
+      * Build the column list dynamically from ALL returned properties.
+      *
+      * This means if your backend later adds another property field,
+      * it automatically appears in the CSV without changing this code.
+      */
+      const columnSet = new Set();
+
+      currentProperties.forEach(property => {
+        Object.keys(property).forEach(key => {
+          columnSet.add(key);
+        });
+      });
+
+      const columns = Array.from(columnSet);
+
+      const rows = [];
+
+      // Header
+      rows.push(
+        columns.map(column => escapeCSVValue(column)).join(",")
+      );
+
+      // Property rows
+      currentProperties.forEach(property => {
+        const row = columns.map(column =>
+          escapeCSVValue(property[column])
+        );
+
+        rows.push(row.join(","));
+      });
+
+      // BOM helps Excel properly recognize UTF-8.
+      const csvContent = "\uFEFF" + rows.join("\r\n");
+
+      const blob = new Blob(
+        [csvContent],
+        { type: "text/csv;charset=utf-8;" }
+      );
+
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+
+      const now = new Date();
+
+      const timestamp = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0"),
+        "_",
+        String(now.getHours()).padStart(2, "0"),
+        String(now.getMinutes()).padStart(2, "0")
+      ].join("");
+
+      link.download = `properties_${timestamp}.csv`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(url);
+    }
+    
+    
+    
+    
+    
+    
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
         center: { lat: 39.276806, lng: -81.537972 },
@@ -1070,6 +1227,14 @@
         clusteringEnabled = e.target.checked;
         syncMarkerDisplay();
       });
+
+      const csvDownloadBtn = document.getElementById("csvDownloadBtn");
+
+      csvDownloadBtn.addEventListener("click", () => {
+        downloadCurrentPropertiesCSV();
+      });
+
+      updateCSVButton();
 
       const urlUser = getUserFromURL();
 
