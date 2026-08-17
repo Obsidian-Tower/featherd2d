@@ -383,10 +383,16 @@
 
       if (clusteringEnabled) {
         propertyMarkers.forEach(marker => marker.setMap(null));
+
         markerCluster = new markerClusterer.MarkerClusterer({
           map,
-          markers: propertyMarkers
+          markers: propertyMarkers,
+          algorithm: new markerClusterer.SuperClusterAlgorithm({
+            radius: 80,
+            maxZoom: 20
+          })
         });
+
       } else {
         propertyMarkers.forEach(marker => marker.setMap(map));
       }
