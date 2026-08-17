@@ -445,65 +445,35 @@
       }
     }
 
-    async function refreshPropertiesForActivePolygons() {
-      try {
-        // 🔥 clear existing markers
-        clearMarkerCluster();
-        propertyMarkers.forEach(marker => marker.setMap(null));
-        propertyMarkers = [];
-        currentProperties = [];
-        updateCSVButton();
+    // 🔥 helper (copied from large file logic)
+    function getAddressNumber(address) {
+      if (!address) return null;
+      const match = address.trim().match(/^(\d+)/);
+      return match ? match[1] : null;
+    }
+    
+    
+    function renderVisibleProperties() {
+      const bounds = map.getBounds();
+      if (!bounds) return;
 
-        // 🔥 get properties inside active polygons
-        const res = await fetch("https://featherd2d.coryzuber.workers.dev/get-properties-for-active-polygons", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user: CURRENT_USER })
+      clearMarkerCluster();
+
+      propertyMarkers.forEach(marker => marker.setMap(null));
+      propertyMarkers = [];
+
+      const visibleProperties = currentProperties.filter(row => {
+        if (typeof row.lat !== "number" || typeof row.lng !== "number") {
+          return false;
+        }
+
+        return bounds.contains({
+          lat: row.lat,
+          lng: row.lng
         });
+      });
 
-        const data = await res.json();
-
-        if (!res.ok) {
-          console.error("❌ Failed to fetch properties:", data);
-          return;
-        }
-
-        const properties = Array.isArray(data.properties) ? data.properties : [];
-
-        currentProperties = properties;
-
-        updateCSVButton();
-
-        if (!properties.length) return;
-
-        // 🔥 fetch disposition history (latest per property)
-        const propertyIds = properties.map(p => p.property_id);
-
-        const statusRes = await fetch("https://featherd2d.coryzuber.workers.dev/get-property-dispositions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ property_ids: propertyIds })
-        });
-
-        const statuses = await statusRes.json();
-
-        const statusMap = {};
-        if (Array.isArray(statuses)) {
-          statuses.forEach(s => {
-            statusMap[s.property_id] = s.disposition;
-          });
-        }
-
-        // 🔥 helper (copied from large file logic)
-        function getAddressNumber(address) {
-          if (!address) return null;
-          const match = address.trim().match(/^(\d+)/);
-          return match ? match[1] : null;
-        }
-
-
-        // 🔥 create markers
-        properties.forEach(row => {
+      visibleProperties.forEach(row => {
           if (typeof row.lat !== "number" || typeof row.lng !== "number") return;
 
           const status = statusMap[row.property_id];
@@ -819,6 +789,76 @@
           propertyMarkers.push(marker);
         });
         syncMarkerDisplay();
+
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    async function refreshPropertiesForActivePolygons() {
+      try {
+        // 🔥 clear existing markers
+        clearMarkerCluster();
+        propertyMarkers.forEach(marker => marker.setMap(null));
+        propertyMarkers = [];
+        currentProperties = [];
+        updateCSVButton();
+
+        // 🔥 get properties inside active polygons
+        const res = await fetch("https://featherd2d.coryzuber.workers.dev/get-properties-for-active-polygons", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user: CURRENT_USER })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("❌ Failed to fetch properties:", data);
+          return;
+        }
+
+        const properties = Array.isArray(data.properties) ? data.properties : [];
+
+        currentProperties = properties;
+
+        updateCSVButton();
+
+        if (!properties.length) return;
+
+        // 🔥 fetch disposition history (latest per property)
+        const propertyIds = properties.map(p => p.property_id);
+
+        const statusRes = await fetch("https://featherd2d.coryzuber.workers.dev/get-property-dispositions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ property_ids: propertyIds })
+        });
+
+        const statuses = await statusRes.json();
+
+        const statusMap = {};
+        if (Array.isArray(statuses)) {
+          statuses.forEach(s => {
+            statusMap[s.property_id] = s.disposition;
+          });
+        }
+
+        
+
+
+        properties.forEach(row => {
+          row.current_status = statusMap[row.property_id] || "prospect";
+        });
+
+        currentProperties = properties;
+
+        renderVisibleProperties();
+
         console.log(`✅ Rendered ${propertyMarkers.length} markers`);
 
       } catch (err) {
@@ -1209,7 +1249,10 @@
 
       forceTopDown();
       map.addListener("zoom_changed", forceTopDown);
-      map.addListener("idle", forceTopDown);
+      map.addListener("idle", () => {
+        forceTopDown();
+        renderVisibleProperties();
+      });
       map.addListener("maptypeid_changed", forceTopDown);
 
       map.addListener("click", () => {
