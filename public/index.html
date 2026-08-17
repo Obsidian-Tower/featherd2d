@@ -476,8 +476,6 @@
       visibleProperties.forEach(row => {
           if (typeof row.lat !== "number" || typeof row.lng !== "number") return;
 
-          const status = statusMap[row.property_id];
-          row.current_status = status || "prospect";
           const fillColor = STATUS_COLORS[row.current_status] || "#ffffff";
           const textColor = status ? "#ffffff" : "#000000";
 
