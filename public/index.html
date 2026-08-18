@@ -316,9 +316,12 @@
     let userMarker = null;
     let userAccuracyCircle = null;
     let activeInfoWindow = null;
+    let activeInfoPropertyId = null;
+    let suppressViewportRender = false;
     let CURRENT_USER = null;
     let ACTIVE_POLYGONS = new Set();
     let polygons = [];
+    
     const STATUS_COLORS = {
       "prospect": "#facc15",
       "knocked": "#a855f7",
@@ -467,11 +470,17 @@
           return false;
         }
 
+        // Always retain the marker whose popup is currently open.
+        if (row.property_id === activeInfoPropertyId) {
+          return true;
+        }
+
         return bounds.contains({
           lat: row.lat,
           lng: row.lng
         });
       });
+
 
       visibleProperties.forEach(row => {
           if (typeof row.lat !== "number" || typeof row.lng !== "number") return;
@@ -506,7 +515,8 @@
 
                     marker.addListener("click", () => {
             if (activeInfoWindow) activeInfoWindow.close();
-
+                      
+            activeInfoPropertyId = row.property_id;
             const container = document.createElement("div");
             container.style.padding = "5px";
             container.style.margin = "0";
@@ -780,6 +790,11 @@
 
             activeInfoWindow = new google.maps.InfoWindow({
               content: container
+            });
+
+            activeInfoWindow.addListener("closeclick", () => {
+              activeInfoPropertyId = null;
+              activeInfoWindow = null;
             });
 
             activeInfoWindow.open(map, marker);
@@ -1247,16 +1262,28 @@
 
       forceTopDown();
       map.addListener("zoom_changed", forceTopDown);
+      
       map.addListener("idle", () => {
         forceTopDown();
+
+        // Don't destroy/rebuild markers while a popup is open.
+        if (activeInfoWindow) {
+          return;
+        }
+
         renderVisibleProperties();
       });
+      
       map.addListener("maptypeid_changed", forceTopDown);
 
       map.addListener("click", () => {
         if (activeInfoWindow) {
           activeInfoWindow.close();
           activeInfoWindow = null;
+          activeInfoPropertyId = null;
+
+          // Now that the popup is gone, sync markers to the current viewport.
+          renderVisibleProperties();
         }
       });
 
