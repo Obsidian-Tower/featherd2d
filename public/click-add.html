@@ -71,6 +71,24 @@
       color: #555;
       font-size: 12px;
     }
+    #pin-counter {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      z-index: 1000;
+
+      padding: 10px 14px;
+      border-radius: 8px;
+
+      background: rgba(17, 24, 39, 0.9);
+      color: white;
+
+      font-size: 14px;
+      font-weight: bold;
+
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(6px);
+    }
   </style>
 </head>
 
@@ -81,11 +99,21 @@
   </div>
 
   <div id="map"></div>
-
+  <div id="pin-counter">
+    Pins added: <span id="pin-count">0</span>
+  </div>
   <script>
   let map;
   let infoWindow;
   let geocoder;
+
+  let pinCount = 0;
+
+  function incrementPinCounter() {
+    pinCount++;
+
+    document.getElementById("pin-count").textContent = pinCount;
+  }
 
   function initMap() {
     const startingLocation = {
@@ -141,6 +169,8 @@
 
       // Success: leave only a green circle.
       setMarkerStatus(statusMarker, "#22c55e");
+      // Increase counter.
+      incrementPinCounter();
 
       console.log("Saved property:", savedProperty);
 
