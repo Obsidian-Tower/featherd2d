@@ -108,7 +108,7 @@
   let geocoder;
 
   let pinCount = 0;
-
+  let lastMousePosition = null;
   function incrementPinCounter() {
     pinCount++;
 
@@ -136,6 +136,59 @@
     infoWindow = new google.maps.InfoWindow();
 
     map.addListener("click", handleMapClick);
+
+    // Keep track of the mouse position over the map.
+    map.getDiv().addEventListener("mousemove", (event) => {
+      const rect = map.getDiv().getBoundingClientRect();
+
+      lastMousePosition = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (
+        event.key.toLowerCase() !== "z" ||
+        event.repeat ||
+        !lastMousePosition
+      ) {
+        return;
+      }
+
+      const projection = map.getProjection();
+
+      if (!projection) {
+        return;
+      }
+
+      const bounds = map.getBounds();
+
+      if (!bounds) {
+        return;
+      }
+
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+
+      const topRight = projection.fromLatLngToPoint(ne);
+      const bottomLeft = projection.fromLatLngToPoint(sw);
+
+      const scale = Math.pow(2, map.getZoom());
+
+      const worldPoint = new google.maps.Point(
+        bottomLeft.x + lastMousePosition.x / scale,
+        topRight.y + lastMousePosition.y / scale
+      );
+
+      const latLng = projection.fromPointToLatLng(worldPoint);
+
+      handleMapClick({
+        latLng
+      });
+    });
+
+
   }
 
 
