@@ -48,7 +48,19 @@
     Call Number
   </button>
 
-  
+  <script>
+    function callNumber(phone) {
+      console.log("Sending number to extension:", phone);
+
+      window.postMessage(
+        {
+          type: "CALL_NUMBER",
+          phone: phone
+        },
+        "*"
+      );
+    }
+  </script>
 
 </body>
 </html>
