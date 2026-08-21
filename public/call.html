@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Call</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0d0d0d;
+      font-family: Arial, sans-serif;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 20px 36px;
+      font-size: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #fff;
+      color: #111;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover {
+      transform: scale(1.04);
+    }
+
+    button:active {
+      transform: scale(0.98);
+      opacity: 0.8;
+    }
+  </style>
+</head>
+
+<body>
+
+  <button onclick="callNumber('18054286018')">
+    Call Number
+  </button>
+
+  
+
+</body>
+</html>
