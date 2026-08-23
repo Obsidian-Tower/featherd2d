@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Call List</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    #polygon-panel {
+      max-width: 500px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #polygon-header {
+      padding: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #eee;
+    }
+
+    #polygon-list {
+      display: none;
+      padding: 10px 14px;
+    }
+
+    #polygon-list.open {
+      display: block;
+    }
+
+    .polygon-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Call List</h2>
+
+  <div id="user-display"></div>
+
+  <br>
+
+  <div id="polygon-panel">
+
+    <div id="polygon-header">
+      Select Area
+    </div>
+
+    <div id="polygon-list">
+      Loading...
+    </div>
+
+  </div>
+
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const user = params.get("user");
+
+    document.getElementById("user-display").textContent =
+      `User: ${user || "Unknown"}`;
+
+
+    const polygonHeader =
+      document.getElementById("polygon-header");
+
+    const polygonList =
+      document.getElementById("polygon-list");
+
+
+    polygonHeader.addEventListener("click", () => {
+      polygonList.classList.toggle("open");
+    });
+
+
+    async function loadPolygons() {
+
+      if (!user) {
+        polygonList.innerHTML =
+          "Missing ?user= parameter";
+        return;
+      }
+
+      try {
+
+        const [
+          polygonsResponse,
+          selectedResponse
+        ] = await Promise.all([
+          fetch("/get-polygons"),
+          fetch(
+            "/get-user-call-polygon?user=" +
+            encodeURIComponent(user)
+          )
+        ]);
+
+        const polygons =
+          await polygonsResponse.json();
+
+        const selected =
+          await selectedResponse.json();
+
+
+        polygonList.innerHTML = "";
+
+
+        polygons.forEach(polygon => {
+
+          const row =
+            document.createElement("label");
+
+          row.className = "polygon-row";
+
+
+          const radio =
+            document.createElement("input");
+
+          radio.type = "radio";
+
+          radio.name = "polygon";
+
+          radio.value = polygon.id;
+
+
+          if (
+            selected &&
+            Number(selected.polygon) ===
+            Number(polygon.id)
+          ) {
+            radio.checked = true;
+
+            polygonHeader.textContent =
+              `Area: ${polygon.name}`;
+          }
+
+
+          radio.addEventListener(
+            "change",
+            async () => {
+
+              if (!radio.checked) {
+                return;
+              }
+
+              polygonHeader.textContent =
+                `Area: ${polygon.name}`;
+
+
+              await saveSelectedPolygon(
+                polygon.id
+              );
+
+            }
+          );
+
+
+          const text =
+            document.createElement("span");
+
+          text.textContent =
+            polygon.name;
+
+
+          row.appendChild(radio);
+          row.appendChild(text);
+
+          polygonList.appendChild(row);
+
+        });
+
+
+      } catch (error) {
+
+        console.error(error);
+
+        polygonList.innerHTML =
+          "Error loading polygons";
+
+      }
+    }
+
+
+    async function saveSelectedPolygon(
+      polygonId
+    ) {
+
+      try {
+
+        const response =
+          await fetch(
+            "/set-user-call-polygon",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+
+              body: JSON.stringify({
+                user: user,
+                polygon: polygonId
+              })
+            }
+          );
+
+
+        const result =
+          await response.json();
+
+
+        if (!response.ok) {
+          console.error(result);
+        }
+
+      } catch (error) {
+        console.error(
+          "Error saving polygon:",
+          error
+        );
+      }
+    }
+
+
+    loadPolygons();
+  </script>
+
+</body>
+</html>
