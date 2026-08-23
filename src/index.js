@@ -228,32 +228,75 @@ async function handleGetPhoneDispositions(request, env) {
       });
     }
 
-    const placeholders =
-      propertyIds.map(() => "?").join(",");
+    const CHUNK_SIZE = 90;
 
-    const rows = await env.DB.prepare(`
-      SELECT
-        h.property_id,
-        h.user,
-        h.disposition,
-        h.updated_at
-      FROM phone_disposition_history h
+    const dispositionResults = [];
 
-      INNER JOIN (
-        SELECT
-          property_id,
-          MAX(id) AS max_id
-        FROM phone_disposition_history
-        WHERE property_id IN (${placeholders})
-        GROUP BY property_id
-      ) latest
-        ON h.id = latest.max_id
-    `)
-      .bind(...propertyIds)
-      .all();
+    console.log(
+      "Disposition lookup:",
+      {
+        totalPropertyIds:
+          propertyIds.length
+      }
+    );
+
+    for (
+      let i = 0;
+      i < propertyIds.length;
+      i += CHUNK_SIZE
+    ) {
+      const chunk =
+        propertyIds.slice(
+          i,
+          i + CHUNK_SIZE
+        );
+
+      console.log(
+        "Disposition chunk:",
+        {
+          start: i,
+          count: chunk.length
+        }
+      );
+
+      const placeholders =
+        chunk.map(() => "?").join(",");
+
+      const rows =
+        await env.DB.prepare(`
+          SELECT
+            h.property_id,
+            h.user,
+            h.disposition,
+            h.updated_at
+          FROM phone_disposition_history h
+
+          INNER JOIN (
+            SELECT
+              property_id,
+              MAX(id) AS max_id
+            FROM phone_disposition_history
+            WHERE property_id IN (${placeholders})
+            GROUP BY property_id
+          ) latest
+            ON h.id = latest.max_id
+        `)
+          .bind(...chunk)
+          .all();
+
+      dispositionResults.push(
+        ...(rows.results || [])
+      );
+    }
+
+    console.log(
+      "Disposition rows returned:",
+      dispositionResults.length
+    );
 
     return json({
-      dispositions: rows.results || []
+      dispositions:
+        dispositionResults
     });
 
   } catch (err) {
@@ -263,7 +306,9 @@ async function handleGetPhoneDispositions(request, env) {
     );
 
     return json(
-      { error: err.message },
+      {
+        error: err.message
+      },
       500
     );
   }
