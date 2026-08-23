@@ -175,6 +175,10 @@
       color: #063b08;
     }
 
+    .status-dead {
+      background: #5c5c5c;
+      color: #063b08;
+    }
 
     /* NAME */
 
@@ -326,6 +330,11 @@
 
     .installed-button {
       background: #07ed0f;
+      color: #063b08;
+    }
+
+    .dead-button {
+      background: #5c5c5c;
       color: #063b08;
     }
 
@@ -919,6 +928,9 @@ function getStatusClass(
   if (status === "Installed")
     return "status-installed";
 
+  if (status === "Dead")
+    return "status-dead";
+
   return "status-prospect";
 }
 
@@ -1226,6 +1238,16 @@ function renderCallList(
               data-status="Installed"
             >
               Installed
+            </button>
+
+            <button
+              class="
+                status-button
+                dead-button
+              "
+              data-status="Dead"
+            >
+              Dead
             </button>
 
           </div>
