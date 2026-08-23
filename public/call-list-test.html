@@ -92,6 +92,16 @@
       color: #3b0764;
     }
 
+    .status-sold {
+      background: #08a112;
+      color: #3b0764;
+    }
+
+    .status-installed {
+      background: #07ed0f;
+      color: #3b0764;
+    }
+
     .name {
       padding: 14px 16px;
 
@@ -209,6 +219,16 @@
 
     .no-answer-button {
       background: #c084fc;
+      color: #3b0764;
+    }
+
+    .sold-button {
+      background: #08a112;
+      color: #3b0764;
+    }
+
+    .installed-button {
+      background: #07ed0f;
       color: #3b0764;
     }
 
@@ -454,6 +474,11 @@ function getStatusClass(status) {
   if (status === "Not Interested")
     return "status-not-interested";
 
+  if (status === "Sold")
+    return "status-sold";
+  if (status === "Installed")
+    return "status-installed";
+
 }
 
 
@@ -576,6 +601,20 @@ function render() {
             data-status="Not Interested"
           >
             Not Interested
+          </button>
+
+          <button
+            class="status-button sold-button"
+            data-status="Sold"
+          >
+            Sold
+          </button>
+
+          <button
+            class="status-button installed-button"
+            data-status="Installed"
+          >
+            Installed
           </button>
 
 
