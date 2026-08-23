@@ -400,7 +400,7 @@ async function handleGetPropertiesForCallPolygon(request, env) {
 
     const phoneResults = [];
 
-    const CHUNK_SIZE = 500;
+    const CHUNK_SIZE = 90;
 
     for (
       let i = 0;
