@@ -80,6 +80,10 @@ export default {
       return handleAddProperty(request, env);
     }
 
+    if (request.method === "POST" && url.pathname === "/add-phone-numbers") {
+      return handleAddPhoneNumbers(request, env);
+    }
+
     try {
       // 🔹 Batch insert (PRIMARY)
       if (request.method === "POST" && url.pathname === "/init-parcels") {
@@ -104,6 +108,160 @@ export default {
 // ================================
 // 🔥 HANDLERS
 // ================================
+
+function parseCSVLine(line) {
+    const result = [];
+    let current = "";
+    let insideQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            if (
+                insideQuotes &&
+                line[i + 1] === '"'
+            ) {
+                current += '"';
+                i++;
+            } else {
+                insideQuotes = !insideQuotes;
+            }
+        } else if (char === "," && !insideQuotes) {
+            result.push(current);
+            current = "";
+        } else {
+            current += char;
+        }
+    }
+
+    result.push(current);
+
+    return result;
+}
+
+
+async function handleAddPhoneNumbers(request, env) {
+    try {
+        const formData = await request.formData();
+        const file = formData.get("file");
+
+        if (!file) {
+            return new Response(
+                JSON.stringify({
+                    error: "No CSV file provided"
+                }),
+                {
+                    status: 400,
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                }
+            );
+        }
+
+        const csvText = await file.text();
+
+        const lines = csvText
+            .split(/\r?\n/)
+            .filter(line => line.trim());
+
+        if (lines.length < 2) {
+            return new Response(
+                JSON.stringify({
+                    error: "CSV contains no data"
+                }),
+                {
+                    status: 400,
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                }
+            );
+        }
+
+        // Remove header
+        lines.shift();
+
+        const statements = [];
+
+        for (const line of lines) {
+            const columns = parseCSVLine(line);
+
+            const property_id = parseInt(columns[0], 10);
+            const phone_number = columns[1]?.trim();
+            const name = columns[2]?.trim() || null;
+            const href = columns[3]?.trim() || null;
+
+            if (!property_id || !phone_number) {
+                continue;
+            }
+
+            statements.push(
+                env.DB.prepare(`
+                  INSERT INTO phone_numbers
+                      (property_id, phone_number, name, href)
+                  VALUES (?, ?, ?, ?)
+              
+                  ON CONFLICT(property_id) DO UPDATE SET
+                      phone_number = excluded.phone_number,
+                      name = excluded.name,
+                      href = excluded.href
+              `).bind(
+                  property_id,
+                  phone_number,
+                  name,
+                  href
+              )
+            );
+        }
+
+        if (statements.length === 0) {
+            return new Response(
+                JSON.stringify({
+                    error: "No valid rows found"
+                }),
+                {
+                    status: 400,
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                }
+            );
+        }
+
+        await env.DB.batch(statements);
+
+        return new Response(
+            JSON.stringify({
+                success: true,
+                inserted: statements.length
+            }),
+            {
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+    } catch (error) {
+        console.error(error);
+
+        return new Response(
+            JSON.stringify({
+                error: error.message
+            }),
+            {
+                status: 500,
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+    }
+}
+
+
 
 async function handleAddProperty(request, env) {
   try {
