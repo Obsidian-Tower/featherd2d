@@ -103,6 +103,16 @@ export default {
         env
       );
     }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/get-properties-for-call-polygon"
+    ) {
+      return handleGetPropertiesForCallPolygon(
+        request,
+        env
+      );
+    }
     
     try {
       // 🔹 Batch insert (PRIMARY)
@@ -128,6 +138,156 @@ export default {
 // ================================
 // 🔥 HANDLERS
 // ================================
+
+async function handleGetPropertiesForCallPolygon(request, env) {
+  try {
+    const body = await request.json();
+    const { user } = body;
+
+    if (!user) {
+      return json({ error: "Missing user" }, 400);
+    }
+
+    // 1. Get this user's selected call polygon
+    const callPolygonRow = await env.DB.prepare(`
+      SELECT polygon
+      FROM user_call_polygon
+      WHERE user = ?
+      LIMIT 1
+    `)
+      .bind(user)
+      .first();
+
+    if (!callPolygonRow) {
+      return json({ phone_numbers: [] });
+    }
+
+    const polygonId = callPolygonRow.polygon;
+
+    // 2. Load polygon coordinates
+    const polygonRow = await env.DB.prepare(`
+      SELECT id, name, coords
+      FROM polygons
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(polygonId)
+      .first();
+
+    if (!polygonRow) {
+      return json({ phone_numbers: [] });
+    }
+
+    let coords;
+
+    try {
+      coords = JSON.parse(polygonRow.coords);
+    } catch (err) {
+      console.error(
+        "Bad polygon coords for polygon",
+        polygonId,
+        err
+      );
+
+      return json({ phone_numbers: [] });
+    }
+
+    if (!Array.isArray(coords) || coords.length < 3) {
+      return json({ phone_numbers: [] });
+    }
+
+    // 3. Get candidate properties using polygon bounding box
+    const {
+      minLat,
+      maxLat,
+      minLng,
+      maxLng
+    } = getBoundingBox(coords);
+
+    const propertyRows = await env.DB.prepare(`
+      SELECT
+        property_id,
+        lat,
+        lng
+      FROM properties
+      WHERE lat BETWEEN ? AND ?
+        AND lng BETWEEN ? AND ?
+    `)
+      .bind(
+        minLat,
+        maxLat,
+        minLng,
+        maxLng
+      )
+      .all();
+
+    const candidates =
+      propertyRows.results || [];
+
+    // 4. Find property IDs actually inside the polygon
+    const propertyIds = [];
+
+    for (const property of candidates) {
+      if (
+        property.lat == null ||
+        property.lng == null
+      ) {
+        continue;
+      }
+
+      const inside = pointInPolygon(
+        [
+          Number(property.lat),
+          Number(property.lng)
+        ],
+        coords
+      );
+
+      if (inside) {
+        propertyIds.push(
+          property.property_id
+        );
+      }
+    }
+
+    if (propertyIds.length === 0) {
+      return json({ phone_numbers: [] });
+    }
+
+    // 5. Pull only phone number data for those properties
+    const placeholders =
+      propertyIds
+        .map(() => "?")
+        .join(",");
+
+    const phoneRows = await env.DB.prepare(`
+      SELECT
+        property_id,
+        phone_number,
+        name
+      FROM phone_numbers
+      WHERE property_id IN (${placeholders})
+    `)
+      .bind(...propertyIds)
+      .all();
+
+    return json({
+      phone_numbers:
+        phoneRows.results || []
+    });
+
+  } catch (err) {
+    console.error(
+      "get-properties-for-call-polygon error:",
+      err
+    );
+
+    return json(
+      { error: err.message },
+      500
+    );
+  }
+}
 
 async function handleSetUserCallPolygon(
   request,
