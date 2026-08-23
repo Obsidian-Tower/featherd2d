@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Fiber Call List</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f4f5f7;
+      color: #171717;
+      font-family: Arial, sans-serif;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+
+    h1 {
+      margin: 6px 4px 16px;
+      font-size: 25px;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .property {
+      background: white;
+      border: 1px solid #d9dce1;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    .property-row {
+      display: grid;
+      grid-template-columns: 135px 1fr;
+      align-items: center;
+      min-height: 76px;
+      cursor: pointer;
+    }
+
+    .property-row:active {
+      background: #f5f5f5;
+    }
+
+    .status {
+      align-self: stretch;
+
+      display: flex;
+      align-items: center;
+
+      padding: 14px;
+
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .status-prospect {
+      background: #fde047;
+      color: #422006;
+    }
+
+    .status-not-interested {
+      background: #67e8f9;
+      color: #083344;
+    }
+
+    .status-follow-up {
+      background: #60a5fa;
+      color: #172554;
+    }
+
+    .status-no-answer {
+      background: #c084fc;
+      color: #3b0764;
+    }
+
+    .name {
+      padding: 14px 16px;
+
+      font-size: 21px;
+      font-weight: 700;
+    }
+
+    .details {
+      display: none;
+
+      padding: 15px;
+
+      border-top: 1px solid #e5e7eb;
+      background: #fafafa;
+    }
+
+    .property.open .details {
+      display: block;
+    }
+
+    .details-top {
+      display: grid;
+      grid-template-columns: 115px 1fr;
+      gap: 12px;
+
+      margin-bottom: 15px;
+    }
+
+    .call-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      min-height: 86px;
+
+      border-radius: 12px;
+
+      background: #22c55e;
+      color: white;
+
+      font-size: 22px;
+      font-weight: 800;
+
+      text-decoration: none;
+    }
+
+    .call-button:active {
+      background: #16a34a;
+    }
+
+    .address {
+      display: flex;
+      align-items: center;
+
+      padding: 14px;
+
+      min-height: 86px;
+
+      border: 1px solid #e1e3e6;
+      border-radius: 12px;
+
+      background: white;
+
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .contact-info {
+      margin-bottom: 15px;
+
+      padding: 12px;
+
+      background: white;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+
+      color: #555;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .status-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .status-button {
+      min-height: 64px;
+
+      border: 0;
+      border-radius: 12px;
+
+      font-size: 17px;
+      font-weight: 800;
+
+      cursor: pointer;
+    }
+
+    .prospect-button {
+      background: #fde047;
+      color: #422006;
+    }
+
+    .not-interested-button {
+      background: #67e8f9;
+      color: #083344;
+    }
+
+    .follow-up-button {
+      background: #60a5fa;
+      color: #172554;
+    }
+
+    .no-answer-button {
+      background: #c084fc;
+      color: #3b0764;
+    }
+
+    .status-button:active {
+      transform: scale(0.98);
+    }
+
+    @media (max-width: 450px) {
+
+      .app {
+        padding: 8px;
+      }
+
+      h1 {
+        font-size: 23px;
+      }
+
+      .property-row {
+        grid-template-columns: 125px 1fr;
+        min-height: 82px;
+      }
+
+      .status {
+        font-size: 14px;
+      }
+
+      .name {
+        font-size: 21px;
+      }
+
+      .details {
+        padding: 12px;
+      }
+
+      .details-top {
+        grid-template-columns: 105px 1fr;
+      }
+
+      .call-button {
+        font-size: 21px;
+      }
+
+      .address {
+        font-size: 16px;
+      }
+
+      .status-buttons {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .status-button {
+        min-height: 68px;
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <h1>Fiber Call List</h1>
+
+  <div id="propertyList" class="list"></div>
+
+</div>
+
+
+<script>
+
+const properties = [
+
+  {
+    id: 1001,
+    firstName: "James",
+    lastName: "Miller",
+    phone: "(352) 555-0142",
+    address: "1125 Highland St, Mount Dora, FL 32757",
+    status: "Prospect"
+  },
+
+  {
+    id: 1002,
+    firstName: "Sarah",
+    lastName: "Johnson",
+    phone: "(352) 555-0178",
+    address: "845 Lakeview Ave, Mount Dora, FL 32757",
+    status: "No Answer"
+  },
+
+  {
+    id: 1003,
+    firstName: "Michael",
+    lastName: "Davis",
+    phone: "(352) 555-0109",
+    address: "2213 Sunrise Blvd, Mount Dora, FL 32757",
+    status: "Follow Up"
+  },
+
+  {
+    id: 1004,
+    firstName: "Amanda",
+    lastName: "Wilson",
+    phone: "(352) 555-0194",
+    address: "621 E 5th Ave, Mount Dora, FL 32757",
+    status: "Not Interested"
+  },
+
+  {
+    id: 1005,
+    firstName: "Robert",
+    lastName: "Taylor",
+    phone: "(352) 555-0133",
+    address: "1704 Dora Parc Ln, Mount Dora, FL 32757",
+    status: "Prospect"
+  }
+
+];
+
+
+const list = document.getElementById("propertyList");
+
+
+function getStatusClass(status) {
+
+  if (status === "Prospect")
+    return "status-prospect";
+
+  if (status === "No Answer")
+    return "status-no-answer";
+
+  if (status === "Follow Up")
+    return "status-follow-up";
+
+  if (status === "Not Interested")
+    return "status-not-interested";
+
+}
+
+
+function getVoiceURL(phone) {
+
+  const cleaned = phone.replace(/\D/g, "");
+
+  return `https://voice.google.com/u/0/calls?a=nc,%2B1${cleaned}`;
+
+}
+
+
+function render() {
+
+  list.innerHTML = "";
+
+  properties.forEach(property => {
+
+    const wrapper =
+      document.createElement("div");
+
+    wrapper.className = "property";
+
+
+    wrapper.innerHTML = `
+
+      <div class="property-row">
+
+        <div class="status ${getStatusClass(property.status)}">
+          ${property.status}
+        </div>
+
+        <div class="name">
+          ${property.firstName}
+        </div>
+
+      </div>
+
+
+      <div class="details">
+
+
+        <div class="details-top">
+
+          <a
+            class="call-button"
+            href="${getVoiceURL(property.phone)}"
+            target="_blank"
+          >
+            Call
+          </a>
+
+
+          <div class="address">
+            ${property.address}
+          </div>
+
+        </div>
+
+
+        <div class="contact-info">
+
+          <strong>
+            ${property.firstName}
+            ${property.lastName}
+          </strong>
+
+          <br>
+
+          ${property.phone}
+
+          <br>
+
+          Property ID:
+          ${property.id}
+
+        </div>
+
+
+        <div class="status-buttons">
+
+
+          <button
+            class="status-button prospect-button"
+            data-status="Prospect"
+          >
+            Prospect
+          </button>
+
+
+          <button
+            class="status-button no-answer-button"
+            data-status="No Answer"
+          >
+            No Answer
+          </button>
+
+
+          <button
+            class="status-button follow-up-button"
+            data-status="Follow Up"
+          >
+            Follow Up
+          </button>
+
+
+          <button
+            class="status-button not-interested-button"
+            data-status="Not Interested"
+          >
+            Not Interested
+          </button>
+
+
+        </div>
+
+      </div>
+
+    `;
+
+
+    const row =
+      wrapper.querySelector(".property-row");
+
+
+    row.addEventListener("click", () => {
+
+      wrapper.classList.toggle("open");
+
+    });
+
+
+    wrapper
+      .querySelectorAll(".status-button")
+      .forEach(button => {
+
+        button.addEventListener(
+          "click",
+          event => {
+
+            event.stopPropagation();
+
+            property.status =
+              button.dataset.status;
+
+
+            const statusElement =
+              wrapper.querySelector(".status");
+
+
+            statusElement.textContent =
+              property.status;
+
+
+            statusElement.className =
+              "status " +
+              getStatusClass(property.status);
+
+          }
+        );
+
+      });
+
+
+    list.appendChild(wrapper);
+
+  });
+
+}
+
+
+render();
+
+</script>
+
+</body>
+</html>
