@@ -2,41 +2,78 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Call List</title>
+  <title>Fiber Call List</title>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #f5f5f5;
+    * {
+      box-sizing: border-box;
     }
 
+    body {
+      margin: 0;
+      background: #f4f5f7;
+      color: #171717;
+      font-family: Arial, sans-serif;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+
+    h1 {
+      margin: 6px 4px 10px;
+      font-size: 25px;
+    }
+
+
+    /* USER */
+
+    #user-display {
+      margin: 0 4px 12px;
+      color: #666;
+      font-size: 14px;
+    }
+
+
+    /* POLYGON SELECTOR */
+
     #polygon-panel {
-      max-width: 500px;
+      margin-bottom: 16px;
+
       background: white;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+
+      border: 1px solid #d9dce1;
+      border-radius: 12px;
+
       overflow: hidden;
     }
 
     #polygon-header {
       padding: 14px;
-      font-weight: bold;
+
+      font-weight: 700;
+
+      background: #eeeeee;
+
       cursor: pointer;
-      background: #eee;
     }
 
     #polygon-list {
       display: none;
-      padding: 10px 14px;
-    
+
+      padding: 8px 14px;
+
       max-height: 220px;
+
       overflow-y: auto;
     }
 
@@ -47,19 +84,315 @@
     .polygon-row {
       display: flex;
       align-items: center;
+
       gap: 10px;
-      padding: 8px 0;
+
+      padding: 9px 0;
+
+      cursor: pointer;
+    }
+
+
+    /* CALL LIST */
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .property {
+      background: white;
+
+      border: 1px solid #d9dce1;
+      border-radius: 14px;
+
+      overflow: hidden;
+
+      box-shadow:
+        0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    .property-row {
+      display: grid;
+
+      grid-template-columns:
+        135px 1fr;
+
+      align-items: center;
+
+      min-height: 76px;
+
+      cursor: pointer;
+    }
+
+    .property-row:active {
+      background: #f5f5f5;
+    }
+
+
+    /* STATUS */
+
+    .status {
+      align-self: stretch;
+
+      display: flex;
+      align-items: center;
+
+      padding: 14px;
+
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .status-prospect {
+      background: #fde047;
+      color: #422006;
+    }
+
+    .status-not-interested {
+      background: #67e8f9;
+      color: #083344;
+    }
+
+    .status-follow-up {
+      background: #60a5fa;
+      color: #172554;
+    }
+
+    .status-no-answer {
+      background: #c084fc;
+      color: #3b0764;
+    }
+
+    .status-sold {
+      background: #08a112;
+      color: white;
+    }
+
+    .status-installed {
+      background: #07ed0f;
+      color: #063b08;
+    }
+
+
+    /* NAME */
+
+    .name {
+      padding: 14px 16px;
+
+      font-size: 21px;
+      font-weight: 700;
+    }
+
+
+    /* EXPANDED DETAILS */
+
+    .details {
+      display: none;
+
+      padding: 15px;
+
+      border-top: 1px solid #e5e7eb;
+
+      background: #fafafa;
+    }
+
+    .property.open .details {
+      display: block;
+    }
+
+    .details-top {
+      display: grid;
+
+      grid-template-columns:
+        115px 1fr;
+
+      gap: 12px;
+
+      margin-bottom: 15px;
+    }
+
+
+    /* CALL BUTTON */
+
+    .call-button {
+      display: flex;
+
+      align-items: center;
+      justify-content: center;
+
+      min-height: 86px;
+
+      border-radius: 12px;
+
+      background: #22c55e;
+      color: white;
+
+      font-size: 22px;
+      font-weight: 800;
+
+      text-decoration: none;
+    }
+
+    .call-button:active {
+      background: #16a34a;
+    }
+
+
+    /* PHONE INFO */
+
+    .phone-box {
+      display: flex;
+      align-items: center;
+
+      padding: 14px;
+
+      min-height: 86px;
+
+      border: 1px solid #e1e3e6;
+      border-radius: 12px;
+
+      background: white;
+
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .contact-info {
+      margin-bottom: 15px;
+
+      padding: 12px;
+
+      background: white;
+
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+
+      color: #555;
+
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+
+    /* STATUS BUTTONS */
+
+    .status-buttons {
+      display: grid;
+
+      grid-template-columns:
+        1fr 1fr;
+
+      gap: 10px;
+    }
+
+    .status-button {
+      min-height: 64px;
+
+      border: 0;
+      border-radius: 12px;
+
+      font-size: 17px;
+      font-weight: 800;
+
+      cursor: pointer;
+    }
+
+    .prospect-button {
+      background: #fde047;
+      color: #422006;
+    }
+
+    .not-interested-button {
+      background: #67e8f9;
+      color: #083344;
+    }
+
+    .follow-up-button {
+      background: #60a5fa;
+      color: #172554;
+    }
+
+    .no-answer-button {
+      background: #c084fc;
+      color: #3b0764;
+    }
+
+    .sold-button {
+      background: #08a112;
+      color: white;
+    }
+
+    .installed-button {
+      background: #07ed0f;
+      color: #063b08;
+    }
+
+    .status-button:active {
+      transform: scale(0.98);
+    }
+
+
+    /* MESSAGE */
+
+    #call-list-message {
+      padding: 20px;
+
+      text-align: center;
+
+      color: #666;
+    }
+
+
+    @media (max-width: 450px) {
+
+      .app {
+        padding: 8px;
+      }
+
+      .property-row {
+        grid-template-columns:
+          125px 1fr;
+
+        min-height: 82px;
+      }
+
+      .status {
+        font-size: 14px;
+      }
+
+      .name {
+        font-size: 21px;
+      }
+
+      .details {
+        padding: 12px;
+      }
+
+      .details-top {
+        grid-template-columns:
+          105px 1fr;
+      }
+
+      .status-button {
+        min-height: 68px;
+
+        font-size: 16px;
+      }
     }
   </style>
 </head>
 
+
 <body>
 
-  <h2>Call List</h2>
+<div class="app">
+
+  <h1>Fiber Call List</h1>
 
   <div id="user-display"></div>
 
-  <br>
 
   <div id="polygon-panel">
 
@@ -74,177 +407,944 @@
   </div>
 
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const user = params.get("user");
-
-    document.getElementById("user-display").textContent =
-      `User: ${user || "Unknown"}`;
-
-
-    const polygonHeader =
-      document.getElementById("polygon-header");
-
-    const polygonList =
-      document.getElementById("polygon-list");
+  <div
+    id="call-list-message"
+  >
+    Loading...
+  </div>
 
 
-    polygonHeader.addEventListener("click", () => {
-      polygonList.classList.toggle("open");
-    });
+  <div
+    id="propertyList"
+    class="list"
+  ></div>
+
+</div>
 
 
-    async function loadPolygons() {
+<script>
 
-      if (!user) {
-        polygonList.innerHTML =
-          "Missing ?user= parameter";
-        return;
-      }
+const params =
+  new URLSearchParams(
+    window.location.search
+  );
 
-      try {
-
-        const [
-          polygonsResponse,
-          selectedResponse
-        ] = await Promise.all([
-          fetch("/get-polygons"),
-          fetch(
-            "/get-user-call-polygon?user=" +
-            encodeURIComponent(user)
-          )
-        ]);
-
-        const polygons =
-          await polygonsResponse.json();
-
-        const selected =
-          await selectedResponse.json();
+const user =
+  params.get("user");
 
 
-        polygonList.innerHTML = "";
+const userDisplay =
+  document.getElementById(
+    "user-display"
+  );
+
+const polygonHeader =
+  document.getElementById(
+    "polygon-header"
+  );
+
+const polygonList =
+  document.getElementById(
+    "polygon-list"
+  );
+
+const propertyList =
+  document.getElementById(
+    "propertyList"
+  );
+
+const message =
+  document.getElementById(
+    "call-list-message"
+  );
 
 
-        polygons.forEach(polygon => {
-
-          const row =
-            document.createElement("label");
-
-          row.className = "polygon-row";
+userDisplay.textContent =
+  `User: ${user || "Unknown"}`;
 
 
-          const radio =
-            document.createElement("input");
 
-          radio.type = "radio";
+/* --------------------------
+   POLYGON PANEL
+-------------------------- */
 
-          radio.name = "polygon";
+polygonHeader.addEventListener(
+  "click",
+  () => {
 
-          radio.value = polygon.id;
+    polygonList.classList.toggle(
+      "open"
+    );
+
+  }
+);
 
 
-          if (
-            selected &&
-            Number(selected.polygon) ===
-            Number(polygon.id)
-          ) {
-            radio.checked = true;
+
+async function loadPolygons() {
+
+  if (!user) {
+
+    polygonList.innerHTML =
+      "Missing ?user= parameter";
+
+    message.textContent =
+      "Missing user.";
+
+    return;
+  }
+
+
+  try {
+
+    const [
+      polygonsResponse,
+      selectedResponse
+    ] = await Promise.all([
+
+      fetch(
+        "/get-polygons"
+      ),
+
+      fetch(
+        "/get-user-call-polygon?user=" +
+        encodeURIComponent(user)
+      )
+
+    ]);
+
+
+    const polygons =
+      await polygonsResponse.json();
+
+    const selected =
+      await selectedResponse.json();
+
+
+    polygonList.innerHTML = "";
+
+
+    polygons.forEach(
+      polygon => {
+
+        const row =
+          document.createElement(
+            "label"
+          );
+
+        row.className =
+          "polygon-row";
+
+
+        const radio =
+          document.createElement(
+            "input"
+          );
+
+        radio.type =
+          "radio";
+
+        radio.name =
+          "polygon";
+
+        radio.value =
+          polygon.id;
+
+
+        if (
+          selected &&
+          Number(selected.polygon) ===
+          Number(polygon.id)
+        ) {
+
+          radio.checked =
+            true;
+
+          polygonHeader.textContent =
+            `Area: ${polygon.name}`;
+
+        }
+
+
+        radio.addEventListener(
+          "change",
+          async () => {
+
+            if (!radio.checked) {
+              return;
+            }
+
 
             polygonHeader.textContent =
               `Area: ${polygon.name}`;
+
+
+            await saveSelectedPolygon(
+              polygon.id
+            );
+
+
+            polygonList.classList.remove(
+              "open"
+            );
+
+
+            await loadCallList();
+
           }
+        );
 
 
-          radio.addEventListener(
-            "change",
-            async () => {
-
-              if (!radio.checked) {
-                return;
-              }
-
-              polygonHeader.textContent =
-                `Area: ${polygon.name}`;
-
-
-              await saveSelectedPolygon(
-                polygon.id
-              );
-
-            }
+        const text =
+          document.createElement(
+            "span"
           );
 
-
-          const text =
-            document.createElement("span");
-
-          text.textContent =
-            polygon.name;
+        text.textContent =
+          polygon.name;
 
 
-          row.appendChild(radio);
-          row.appendChild(text);
+        row.appendChild(
+          radio
+        );
 
-          polygonList.appendChild(row);
+        row.appendChild(
+          text
+        );
 
-        });
-
-
-      } catch (error) {
-
-        console.error(error);
-
-        polygonList.innerHTML =
-          "Error loading polygons";
+        polygonList.appendChild(
+          row
+        );
 
       }
-    }
+    );
 
 
-    async function saveSelectedPolygon(
-      polygonId
+    /*
+      After polygon selection has
+      been restored, load calls.
+    */
+
+    if (
+      selected &&
+      selected.polygon
     ) {
 
-      try {
+      await loadCallList();
 
-        const response =
-          await fetch(
-            "/set-user-call-polygon",
-            {
-              method: "POST",
+    } else {
 
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
+      message.textContent =
+        "Select an area to begin.";
 
-              body: JSON.stringify({
-                user: user,
-                polygon: polygonId
-              })
-            }
-          );
-
-
-        const result =
-          await response.json();
-
-
-        if (!response.ok) {
-          console.error(result);
-        }
-
-      } catch (error) {
-        console.error(
-          "Error saving polygon:",
-          error
-        );
-      }
     }
 
 
-    loadPolygons();
-  </script>
+  } catch (error) {
+
+    console.error(error);
+
+    polygonList.innerHTML =
+      "Error loading polygons";
+
+    message.textContent =
+      "Error loading polygons.";
+
+  }
+}
+
+
+
+/* --------------------------
+   SAVE POLYGON
+-------------------------- */
+
+async function saveSelectedPolygon(
+  polygonId
+) {
+
+  try {
+
+    const response =
+      await fetch(
+        "/set-user-call-polygon",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            user: user,
+            polygon: polygonId
+          })
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      console.error(result);
+
+      throw new Error(
+        result.error ||
+        "Failed to save polygon"
+      );
+
+    }
+
+
+  } catch (error) {
+
+    console.error(
+      "Error saving polygon:",
+      error
+    );
+
+  }
+}
+
+
+
+/* --------------------------
+   LOAD CALL LIST
+-------------------------- */
+
+async function loadCallList() {
+
+  propertyList.innerHTML = "";
+
+  message.style.display =
+    "block";
+
+  message.textContent =
+    "Loading call list...";
+
+
+  try {
+
+    /*
+      Get phone records inside the
+      currently selected polygon.
+    */
+
+    const response =
+      await fetch(
+        "/get-properties-for-call-polygon",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            user: user
+          })
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        "Failed to load call list"
+      );
+
+    }
+
+
+    const phones =
+      result.phone_numbers || [];
+
+
+    if (phones.length === 0) {
+
+      message.textContent =
+        "No phone numbers found in this area.";
+
+      return;
+
+    }
+
+
+    /*
+      Get current dispositions.
+    */
+
+    const propertyIds =
+      phones.map(
+        item => item.property_id
+      );
+
+
+    const dispositionResponse =
+      await fetch(
+        "/get-phone-dispositions",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            property_ids:
+              propertyIds
+          })
+        }
+      );
+
+
+    const dispositionResult =
+      await dispositionResponse.json();
+
+
+    if (!dispositionResponse.ok) {
+
+      throw new Error(
+        dispositionResult.error ||
+        "Failed to load dispositions"
+      );
+
+    }
+
+
+    /*
+      Convert dispositions to:
+
+      property_id -> disposition
+    */
+
+    const dispositionMap =
+      new Map();
+
+
+    (
+      dispositionResult.dispositions ||
+      []
+    ).forEach(item => {
+
+      dispositionMap.set(
+        Number(item.property_id),
+        item.disposition
+      );
+
+    });
+
+
+    /*
+      Attach status to every phone.
+      New numbers default to Prospect.
+    */
+
+    const properties =
+      phones.map(phone => ({
+
+        ...phone,
+
+        status:
+          dispositionMap.get(
+            Number(
+              phone.property_id
+            )
+          ) || "Prospect"
+
+      }));
+
+
+    message.style.display =
+      "none";
+
+
+    renderCallList(
+      properties
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Call list error:",
+      error
+    );
+
+    message.style.display =
+      "block";
+
+    message.textContent =
+      "Error loading call list.";
+
+  }
+}
+
+
+
+/* --------------------------
+   STATUS CSS CLASS
+-------------------------- */
+
+function getStatusClass(
+  status
+) {
+
+  if (status === "Prospect")
+    return "status-prospect";
+
+  if (status === "No Answer")
+    return "status-no-answer";
+
+  if (status === "Follow Up")
+    return "status-follow-up";
+
+  if (status === "Not Interested")
+    return "status-not-interested";
+
+  if (status === "Sold")
+    return "status-sold";
+
+  if (status === "Installed")
+    return "status-installed";
+
+  return "status-prospect";
+}
+
+
+
+/* --------------------------
+   FORMAT NAME
+-------------------------- */
+
+function formatName(name) {
+
+  if (!name) {
+    return "Unknown";
+  }
+
+  return name
+    .replace(/-/g, " ")
+    .replace(
+      /\b\w/g,
+      char =>
+        char.toUpperCase()
+    );
+}
+
+
+
+/* --------------------------
+   FORMAT PHONE
+-------------------------- */
+
+function formatPhone(phone) {
+
+  const cleaned =
+    String(phone || "")
+      .replace(/\D/g, "");
+
+
+  if (cleaned.length === 10) {
+
+    return (
+      "(" +
+      cleaned.slice(0, 3) +
+      ") " +
+      cleaned.slice(3, 6) +
+      "-" +
+      cleaned.slice(6)
+    );
+
+  }
+
+  return phone;
+}
+
+
+
+/* --------------------------
+   GOOGLE VOICE
+-------------------------- */
+
+function getVoiceURL(phone) {
+
+  const cleaned =
+    String(phone)
+      .replace(/\D/g, "");
+
+
+  return (
+    "https://voice.google.com/u/0/" +
+    "calls?a=nc,%2B1" +
+    cleaned
+  );
+}
+
+
+
+/* --------------------------
+   SAVE DISPOSITION
+-------------------------- */
+
+async function saveDisposition(
+  property,
+  disposition
+) {
+
+  const response =
+    await fetch(
+      "/set-phone-disposition",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body: JSON.stringify({
+
+          property_id:
+            property.property_id,
+
+          user:
+            user,
+
+          disposition:
+            disposition
+
+        })
+      }
+    );
+
+
+  const result =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      result.error ||
+      "Failed to save disposition"
+    );
+
+  }
+
+
+  return result;
+}
+
+
+
+/* --------------------------
+   RENDER CALL LIST
+-------------------------- */
+
+function renderCallList(
+  properties
+) {
+
+  propertyList.innerHTML = "";
+
+
+  properties.forEach(
+    property => {
+
+      const wrapper =
+        document.createElement(
+          "div"
+        );
+
+      wrapper.className =
+        "property";
+
+
+      const displayName =
+        formatName(
+          property.name
+        );
+
+
+      wrapper.innerHTML = `
+
+        <div class="property-row">
+
+          <div
+            class="
+              status
+              ${getStatusClass(property.status)}
+            "
+          >
+            ${property.status}
+          </div>
+
+          <div class="name">
+            ${displayName}
+          </div>
+
+        </div>
+
+
+        <div class="details">
+
+
+          <div class="details-top">
+
+            <a
+              class="call-button"
+
+              href="${
+                getVoiceURL(
+                  property.phone_number
+                )
+              }"
+
+              target="_blank"
+            >
+              Call
+            </a>
+
+
+            <div class="phone-box">
+
+              ${
+                formatPhone(
+                  property.phone_number
+                )
+              }
+
+            </div>
+
+          </div>
+
+
+          <div class="contact-info">
+
+            <strong>
+              ${displayName}
+            </strong>
+
+            <br>
+
+            ${
+              formatPhone(
+                property.phone_number
+              )
+            }
+
+            <br>
+
+            Property ID:
+            ${property.property_id}
+
+          </div>
+
+
+          <div class="status-buttons">
+
+            <button
+              class="
+                status-button
+                prospect-button
+              "
+              data-status="Prospect"
+            >
+              Prospect
+            </button>
+
+
+            <button
+              class="
+                status-button
+                no-answer-button
+              "
+              data-status="No Answer"
+            >
+              No Answer
+            </button>
+
+
+            <button
+              class="
+                status-button
+                follow-up-button
+              "
+              data-status="Follow Up"
+            >
+              Follow Up
+            </button>
+
+
+            <button
+              class="
+                status-button
+                not-interested-button
+              "
+              data-status="Not Interested"
+            >
+              Not Interested
+            </button>
+
+
+            <button
+              class="
+                status-button
+                sold-button
+              "
+              data-status="Sold"
+            >
+              Sold
+            </button>
+
+
+            <button
+              class="
+                status-button
+                installed-button
+              "
+              data-status="Installed"
+            >
+              Installed
+            </button>
+
+          </div>
+
+        </div>
+      `;
+
+
+      /*
+        Expand/collapse card
+      */
+
+      const row =
+        wrapper.querySelector(
+          ".property-row"
+        );
+
+
+      row.addEventListener(
+        "click",
+        () => {
+
+          wrapper.classList.toggle(
+            "open"
+          );
+
+        }
+      );
+
+
+      /*
+        Disposition buttons
+      */
+
+      wrapper
+        .querySelectorAll(
+          ".status-button"
+        )
+        .forEach(
+          button => {
+
+            button.addEventListener(
+              "click",
+              async event => {
+
+                event.stopPropagation();
+
+
+                const newStatus =
+                  button.dataset.status;
+
+
+                try {
+
+                  button.disabled =
+                    true;
+
+
+                  await saveDisposition(
+                    property,
+                    newStatus
+                  );
+
+
+                  property.status =
+                    newStatus;
+
+
+                  const statusElement =
+                    wrapper.querySelector(
+                      ".status"
+                    );
+
+
+                  statusElement.textContent =
+                    newStatus;
+
+
+                  statusElement.className =
+                    "status " +
+                    getStatusClass(
+                      newStatus
+                    );
+
+
+                } catch (error) {
+
+                  console.error(
+                    "Disposition error:",
+                    error
+                  );
+
+                  alert(
+                    "Could not save status."
+                  );
+
+                } finally {
+
+                  button.disabled =
+                    false;
+
+                }
+
+              }
+            );
+
+          }
+        );
+
+
+      propertyList.appendChild(
+        wrapper
+      );
+
+    }
+  );
+}
+
+
+
+/* --------------------------
+   START
+-------------------------- */
+
+loadPolygons();
+
+</script>
 
 </body>
 </html>
