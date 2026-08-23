@@ -381,29 +381,74 @@ async function handleGetPropertiesForCallPolygon(request, env) {
     }
 
     if (propertyIds.length === 0) {
-      return json({ phone_numbers: [] });
+      return json({
+        phone_numbers: []
+      });
     }
 
-    // 5. Pull only phone number data for those properties
-    const placeholders =
-      propertyIds
-        .map(() => "?")
-        .join(",");
+    console.log(
+      "Call polygon:",
+      {
+        user,
+        polygonId,
+        candidateProperties:
+          candidates.length,
+        insidePolygon:
+          propertyIds.length
+      }
+    );
 
-    const phoneRows = await env.DB.prepare(`
-      SELECT
-        property_id,
-        phone_number,
-        name
-      FROM phone_numbers
-      WHERE property_id IN (${placeholders})
-    `)
-      .bind(...propertyIds)
-      .all();
+    const phoneResults = [];
+
+    const CHUNK_SIZE = 500;
+
+    for (
+      let i = 0;
+      i < propertyIds.length;
+      i += CHUNK_SIZE
+    ) {
+      const chunk =
+        propertyIds.slice(
+          i,
+          i + CHUNK_SIZE
+        );
+
+      console.log(
+        "Phone lookup chunk:",
+        {
+          start: i,
+          count: chunk.length
+        }
+      );
+
+      const placeholders =
+        chunk.map(() => "?").join(",");
+
+      const phoneRows =
+        await env.DB.prepare(`
+          SELECT
+            property_id,
+            phone_number,
+            name
+          FROM phone_numbers
+          WHERE property_id IN (${placeholders})
+        `)
+          .bind(...chunk)
+          .all();
+
+      phoneResults.push(
+        ...(phoneRows.results || [])
+      );
+    }
+
+    console.log(
+      "Phone rows returned:",
+      phoneResults.length
+    );
 
     return json({
       phone_numbers:
-        phoneRows.results || []
+        phoneResults
     });
 
   } catch (err) {
