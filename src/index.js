@@ -84,6 +84,26 @@ export default {
       return handleAddPhoneNumbers(request, env);
     }
 
+    if (
+      request.method === "GET" &&
+      url.pathname === "/get-user-call-polygon"
+    ) {
+      return handleGetUserCallPolygon(
+        request,
+        env
+      );
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/set-user-call-polygon"
+    ) {
+      return handleSetUserCallPolygon(
+        request,
+        env
+      );
+    }
+    
     try {
       // 🔹 Batch insert (PRIMARY)
       if (request.method === "POST" && url.pathname === "/init-parcels") {
@@ -108,6 +128,148 @@ export default {
 // ================================
 // 🔥 HANDLERS
 // ================================
+
+async function handleSetUserCallPolygon(
+  request,
+  env
+) {
+  try {
+
+    const body =
+      await request.json();
+
+    const user =
+      body.user;
+
+    const polygon =
+      Number(body.polygon);
+
+
+    if (!user || !polygon) {
+      return json(
+        {
+          error:
+            "Missing user or polygon"
+        },
+        400
+      );
+    }
+
+
+    await env.DB.prepare(`
+      INSERT INTO user_call_polygon (
+        user,
+        polygon
+      )
+
+      VALUES (?, ?)
+
+      ON CONFLICT(user)
+
+      DO UPDATE SET
+        polygon = excluded.polygon,
+        updated_at = CURRENT_TIMESTAMP
+    `)
+    .bind(
+      user,
+      polygon
+    )
+    .run();
+
+
+    return json({
+      success: true,
+      user: user,
+      polygon: polygon
+    });
+
+
+  } catch (err) {
+
+    console.error(
+      "set-user-call-polygon error:",
+      err
+    );
+
+    return json(
+      {
+        error: err.message
+      },
+      500
+    );
+  }
+}
+
+async function handleGetUserCallPolygon(
+  request,
+  env
+) {
+  try {
+
+    const url =
+      new URL(request.url);
+
+    const user =
+      url.searchParams.get("user");
+
+
+    if (!user) {
+      return json(
+        {
+          error:
+            "Missing user parameter"
+        },
+        400
+      );
+    }
+
+
+    const row =
+      await env.DB.prepare(`
+        SELECT
+          id,
+          user,
+          polygon,
+          created_at,
+          updated_at
+
+        FROM user_call_polygon
+
+        WHERE user = ?
+
+        LIMIT 1
+      `)
+      .bind(user)
+      .first();
+
+
+    if (!row) {
+      return json({
+        user: user,
+        polygon: null
+      });
+    }
+
+
+    return json(row);
+
+
+  } catch (err) {
+
+    console.error(
+      "get-user-call-polygon error:",
+      err
+    );
+
+    return json(
+      {
+        error: err.message
+      },
+      500
+    );
+  }
+}
+
 
 function parseCSVLine(line) {
     const result = [];
