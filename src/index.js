@@ -383,7 +383,10 @@ async function handleGetPropertiesForCallPolygon(request, env) {
       SELECT
         property_id,
         lat,
-        lng
+        lng,
+        PHY_ADDR1,
+        PHY_CITY,
+        PHY_ZIPCD
       FROM properties
       WHERE lat BETWEEN ? AND ?
         AND lng BETWEEN ? AND ?
@@ -401,7 +404,7 @@ async function handleGetPropertiesForCallPolygon(request, env) {
 
     // 4. Find property IDs actually inside the polygon
     const propertyIds = [];
-
+    const propertyMap = new Map();
     for (const property of candidates) {
       if (
         property.lat == null ||
@@ -419,6 +422,15 @@ async function handleGetPropertiesForCallPolygon(request, env) {
       );
 
       if (inside) {
+        propertyMap.set(
+          Number(property.property_id),
+          {
+            PHY_ADDR1: property.PHY_ADDR1,
+            PHY_CITY: property.PHY_CITY,
+            PHY_ZIPCD: property.PHY_ZIPCD
+          }
+        );
+        
         propertyIds.push(
           property.property_id
         );
@@ -481,9 +493,26 @@ async function handleGetPropertiesForCallPolygon(request, env) {
           .bind(...chunk)
           .all();
 
-      phoneResults.push(
-        ...(phoneRows.results || [])
-      );
+      for (const phone of phoneRows.results || []) {
+
+        const propertyInfo =
+          propertyMap.get(
+            Number(phone.property_id)
+          ) || {};
+      
+        phoneResults.push({
+          ...phone,
+      
+          address:
+            propertyInfo.PHY_ADDR1 || "",
+      
+          city:
+            propertyInfo.PHY_CITY || "",
+      
+          zip:
+            propertyInfo.PHY_ZIPCD || ""
+        });
+      }
     }
 
     console.log(
