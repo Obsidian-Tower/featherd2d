@@ -113,6 +113,20 @@ export default {
         env
       );
     }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/get-phone-dispositions"
+    ) {
+      return handleGetPhoneDispositions(request, env);
+    }
+    
+    if (
+      request.method === "POST" &&
+      url.pathname === "/set-phone-disposition"
+    ) {
+      return handleSetPhoneDisposition(request, env);
+    }
     
     try {
       // 🔹 Batch insert (PRIMARY)
@@ -138,6 +152,122 @@ export default {
 // ================================
 // 🔥 HANDLERS
 // ================================
+
+async function handleSetPhoneDisposition(
+  request,
+  env
+) {
+  try {
+    const body = await request.json();
+
+    const {
+      property_id,
+      user,
+      disposition
+    } = body;
+
+    if (
+      property_id == null ||
+      !user ||
+      !disposition
+    ) {
+      return json(
+        {
+          error:
+            "Missing property_id, user, or disposition"
+        },
+        400
+      );
+    }
+
+    const result = await env.DB.prepare(`
+      INSERT INTO phone_disposition_history (
+        property_id,
+        user,
+        disposition
+      )
+      VALUES (?, ?, ?)
+    `)
+      .bind(
+        property_id,
+        user,
+        disposition
+      )
+      .run();
+
+    return json({
+      success: true,
+      property_id,
+      disposition
+    });
+
+  } catch (err) {
+    console.error(
+      "set-phone-disposition error:",
+      err
+    );
+
+    return json(
+      { error: err.message },
+      500
+    );
+  }
+}
+
+async function handleGetPhoneDispositions(request, env) {
+  try {
+    const body = await request.json();
+    const propertyIds = body.property_ids;
+
+    if (
+      !Array.isArray(propertyIds) ||
+      propertyIds.length === 0
+    ) {
+      return json({
+        dispositions: []
+      });
+    }
+
+    const placeholders =
+      propertyIds.map(() => "?").join(",");
+
+    const rows = await env.DB.prepare(`
+      SELECT
+        h.property_id,
+        h.user,
+        h.disposition,
+        h.updated_at
+      FROM phone_disposition_history h
+
+      INNER JOIN (
+        SELECT
+          property_id,
+          MAX(id) AS max_id
+        FROM phone_disposition_history
+        WHERE property_id IN (${placeholders})
+        GROUP BY property_id
+      ) latest
+        ON h.id = latest.max_id
+    `)
+      .bind(...propertyIds)
+      .all();
+
+    return json({
+      dispositions: rows.results || []
+    });
+
+  } catch (err) {
+    console.error(
+      "get-phone-dispositions error:",
+      err
+    );
+
+    return json(
+      { error: err.message },
+      500
+    );
+  }
+}
 
 async function handleGetPropertiesForCallPolygon(request, env) {
   try {
