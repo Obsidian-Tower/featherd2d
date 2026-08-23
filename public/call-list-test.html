@@ -263,6 +263,106 @@
         min-height: 68px;
         font-size: 16px;
       }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 6px 4px 16px;
+      }
+
+      .header h1 {
+        margin: 0;
+      }
+
+
+      /* DARK MODE TOGGLE */
+
+      .theme-toggle {
+        position: relative;
+        width: 58px;
+        height: 32px;
+        flex-shrink: 0;
+      }
+
+      .theme-toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        inset: 0;
+
+        background: #d1d5db;
+        border-radius: 30px;
+
+        cursor: pointer;
+
+        transition: 0.2s;
+      }
+
+      .toggle-slider::before {
+        content: "";
+
+        position: absolute;
+
+        width: 26px;
+        height: 26px;
+
+        left: 3px;
+        top: 3px;
+
+        background: white;
+
+        border-radius: 50%;
+
+        box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+
+        transition: 0.2s;
+      }
+
+      .theme-toggle input:checked + .toggle-slider {
+        background: #222;
+      }
+
+      .theme-toggle input:checked + .toggle-slider::before {
+        transform: translateX(26px);
+      }
+
+
+      /* DARK MODE */
+
+      body.dark-mode {
+        background: #0f1115;
+        color: #f5f5f5;
+      }
+
+      body.dark-mode .property {
+        background: #191c22;
+        border-color: #30343c;
+      }
+
+      body.dark-mode .property-row:active {
+        background: #242830;
+      }
+
+      body.dark-mode .details {
+        background: #12151a;
+        border-color: #30343c;
+      }
+
+      body.dark-mode .address {
+        background: #1c2027;
+        border-color: #343943;
+        color: #f5f5f5;
+      }
+
+      body.dark-mode .contact-info {
+        background: #1c2027;
+        border-color: #343943;
+        color: #cbd0d8;
+      }
     }
   </style>
 </head>
@@ -271,7 +371,14 @@
 
 <div class="app">
 
+  <div class="header">
   <h1>Fiber Call List</h1>
+
+  <label class="theme-toggle">
+    <input type="checkbox" id="darkModeToggle">
+    <span class="toggle-slider"></span>
+  </label>
+</div>
 
   <div id="propertyList" class="list"></div>
 
@@ -354,10 +461,21 @@ function getVoiceURL(phone) {
 
   const cleaned = phone.replace(/\D/g, "");
 
-  return `https://voice.google.com/u/2/calls?a=nc,%2B1${cleaned}`;
+  return `https://voice.google.com/u/0/calls?a=nc,%2B1${cleaned}`;
 
 }
 
+const darkModeToggle =
+  document.getElementById("darkModeToggle");
+
+darkModeToggle.addEventListener("change", () => {
+
+  document.body.classList.toggle(
+    "dark-mode",
+    darkModeToggle.checked
+  );
+
+});
 
 function render() {
 
