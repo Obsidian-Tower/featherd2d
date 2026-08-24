@@ -1073,7 +1073,7 @@ function renderCallList(
 
 
   properties.forEach(
-    property => {
+    (property, index) => {
 
       const wrapper =
         document.createElement(
@@ -1104,7 +1104,7 @@ function renderCallList(
           </div>
 
           <div class="name">
-            ${displayName}
+            ${index + 1}. ${displayName}
           </div>
 
         </div>
