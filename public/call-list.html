@@ -147,37 +147,42 @@
 
     .status-prospect {
       background: #fde047;
-      color: #422006;
+      color: #000000;
     }
 
     .status-not-interested {
       background: #67e8f9;
-      color: #083344;
+      color: #000000;
     }
 
     .status-follow-up {
       background: #60a5fa;
-      color: #172554;
+      color: #000000;
     }
 
     .status-no-answer {
       background: #c084fc;
-      color: #3b0764;
+      color: #000000;
     }
 
     .status-sold {
       background: #08a112;
-      color: white;
+      color: rgb(0, 0, 0);
     }
 
     .status-installed {
       background: #07ed0f;
-      color: #063b08;
+      color: #000000;
     }
 
     .status-dead {
       background: #5c5c5c;
-      color: #063b08;
+      color: #030303;
+    }
+
+    .status-name-reason{
+      background: #ff4800;
+      color: #000000;
     }
 
     /* NAME */
@@ -305,37 +310,42 @@
 
     .prospect-button {
       background: #fde047;
-      color: #422006;
+      color: #000000;
     }
 
     .not-interested-button {
       background: #67e8f9;
-      color: #083344;
+      color: #000000;
     }
 
     .follow-up-button {
       background: #60a5fa;
-      color: #172554;
+      color: #000000;
     }
 
     .no-answer-button {
       background: #c084fc;
-      color: #3b0764;
+      color: #000000;
     }
 
     .sold-button {
       background: #08a112;
-      color: white;
+      color: rgb(0, 0, 0);
     }
 
     .installed-button {
       background: #07ed0f;
-      color: #063b08;
+      color: #000000;
     }
 
     .dead-button {
       background: #5c5c5c;
-      color: #063b08;
+      color: #000000;
+    }
+
+    .name-reason-button {
+      background: #ff4800;
+      color: #000000;
     }
 
     .status-button:active {
@@ -931,6 +941,9 @@ function getStatusClass(
   if (status === "Dead")
     return "status-dead";
 
+  if (status === "Name Reason")
+    return "status-name-reason";
+
   return "status-prospect";
 }
 
@@ -1235,6 +1248,16 @@ function renderCallList(
               data-status="Dead"
             >
               Dead
+            </button>
+
+            <button
+              class="
+                status-button
+                name-reason-button
+              "
+              data-status="Name Reason"
+            >
+              Name Reason
             </button>
 
           </div>
